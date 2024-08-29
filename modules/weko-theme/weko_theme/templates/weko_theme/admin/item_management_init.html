@@ -20,8 +20,8 @@
 
 {%- extends config.WEKO_INDEX_TREE_BASE_TEMPLATE %}
 
-{%- from "invenio_communities/macros.html" import community_header %}
-
+<!-- {%- from "invenio_communities/macros.html" import community_header %} -->
+<!-- {%- from "weko_communities/macros.html" import community_header %} -->
 {%- block css %}
   {{ super() }}
   {% assets "invenio_search_ui_search_css" %}<link href="{{ ASSET_URL }}" rel="stylesheet">{% endassets %}

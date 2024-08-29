@@ -41,7 +41,8 @@ from flask_babelex import gettext as _
 from flask_login import current_user
 from flask_mail import Attachment
 from flask_wtf import FlaskForm,Form
-from invenio_communities.models import Community
+# from invenio_communities.models import Community
+# from invenio_communities import models as Community
 from invenio_db import db
 from invenio_files_rest.storage.pyfs import remove_dir_with_file
 from invenio_mail.api import send_mail
@@ -1158,18 +1159,18 @@ class IdentifierSettingView(ModelView):
         :param form:
             Form to validate
         """
-        if isinstance(form.repository.data, Community):
-            id_list = []
-            id_data = Identifier.query.all()
-            for i in id_data:
-                id_list.append(i.repository)
+        # if isinstance(form.repository.data, Community):
+        #     id_list = []
+        #     id_data = Identifier.query.all()
+        #     for i in id_data:
+        #         id_list.append(i.repository)
 
-            if (form.repository.data.id in id_list) and \
-                (form.action == 'create'
-                 or form.repo_selected.data != form.repository.data.id):
-                flash(_('Specified repository is already registered.'),
-                      'error')
-                return False
+        #     if (form.repository.data.id in id_list) and \
+        #         (form.action == 'create'
+        #          or form.repo_selected.data != form.repository.data.id):
+        #         flash(_('Specified repository is already registered.'),
+        #               'error')
+        #         return False
         return super(IdentifierSettingView, self).validate_form(form)
 
     def on_model_change(self, form, model, is_created):
@@ -1236,8 +1237,9 @@ class IdentifierSettingView(ModelView):
     def _get_community_list(self):
         query_data = []
         try:
-            query_data = Community.query.all()
-            query_data.insert(0, Community(id='Root Index'))
+            # query_data = Community.query.all()
+            # query_data.insert(0, Community(id='Root Index'))
+            query_data = None
         except Exception as ex:
             current_app.logger.debug(ex)
         return query_data

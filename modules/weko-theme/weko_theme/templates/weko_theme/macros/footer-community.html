@@ -18,15 +18,16 @@
 # MA 02111-1307, USA.
 #}
 
-{%- from "invenio_communities/macros.html" import community_footer %}
+<!-- {%- from "weko_communities/macros.html" import community_footer %} -->
+<!-- {%- from "invenio_com/macros.html" import community_header %} -->
 
 {% macro community_footer_widget(render_widgets, community, link, subtitle) %}
   {%- if render_widgets %}
     <footer-fix id="footer" class="widget-footer">
-      {{ community_footer(community, link, subtitle) }}
+     <!-- {{ community_footer(community, link, subtitle) }} -->
     </footer-fix>
   {%- endif %}
   <footer id="footer"{%- if render_widgets %}style="display: None;"{%- endif %}>
-  {{ community_footer(community, link, subtitle) }}
+  <!-- {{ community_footer(community, link, subtitle) }} -->
   </footer>
 {% endmacro %}

@@ -1125,8 +1125,9 @@ class RecordResource(ContentNegotiatedMethodView):
                         role_ids.append(role.id)
             if role_ids:
                 from invenio_communities.models import Community
+                # from invenio_communities import models as Community
                 from weko_index_tree.api import Indexes
-
+                # comm_list = None
                 comm_list = Community.query.filter(
                     Community.id_role.in_(role_ids)
                 ).all()

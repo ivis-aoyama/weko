@@ -99,7 +99,6 @@ services:
       - /code/modules/invenio-previewer/invenio_previewer.egg-info
       - /code/modules/invenio-stats/invenio_stats.egg-info
       - /code/modules/invenio-records-rest/invenio_records_rest.egg-info
-      - /code/modules/invenio-communities/invenio_communities.egg-info
       - /code/modules/invenio-mail/invenio_mail.egg-info
       - /code/modules/invenio-deposit/invenio_deposit.egg-info
       - /code/modules/invenio-resourcesyncserver/invenio_resourcesyncserver.egg-info
@@ -130,6 +129,7 @@ services:
       - /code/modules/weko-sitemap/weko_sitemap.egg-info
       - /code/modules/invenio-iiif/invenio_iiif.egg-info
       - /code/modules/weko-swordserver/weko_swordserver.egg-info
+      - /code/modules/weko-communities/weko_communities.egg-info 
     user: invenio
     links:
       - postgresql

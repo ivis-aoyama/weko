@@ -14,8 +14,8 @@ from datetime import MINYEAR, datetime, timedelta
 
 from flask import current_app, request, url_for
 from flask_babelex import get_locale, to_user_timezone, to_utc
-from invenio_communities import config as invenio_communities_config
-from invenio_communities.models import Community
+# from invenio_communities import config as invenio_communities_config
+# from invenio_communities import models as Community
 from invenio_db import db
 from invenio_pidstore.errors import PIDDoesNotExistError
 from invenio_pidstore.models import PIDStatus

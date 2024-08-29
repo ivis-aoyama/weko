@@ -213,12 +213,14 @@ class IndexActionResource(ContentNegotiatedMethodView):
                     else:
                         role_ids.append(role.id)
             if not can_edit and role_ids and str(index_id) != '0':
-                from invenio_communities.models import Community
+                # from invenio_communities.models import Community
+                # from invenio_communities import models as Community
                 indexes = [i.id for i in Indexes.get_all_parent_indexes(index_id)]
-                comm_data = Community.query.filter(
-                    Community.root_node_id.in_(indexes),
-                    Community.id_role.in_(role_ids)
-                ).all()
+                comm_data = None
+                # comm_data = Community.query.filter(
+                #     Community.root_node_id.in_(indexes),
+                #     Community.id_role.in_(role_ids)
+                # ).all()
                 if comm_data:
                     can_edit = True
             index["can_edit"] = can_edit
@@ -399,7 +401,8 @@ class IndexTreeActionResource(ContentNegotiatedMethodView):
                     if len(i['children']) > 0:
                         _check_edit_permission(is_admin, i['children'], can_edit_indexes)
 
-        from invenio_communities.models import Community
+        # from invenio_communities.models import Community
+        # from invenio_communities import models as Community
         try:
             action = request.values.get('action')
             comm_id = request.values.get('community')
@@ -413,7 +416,8 @@ class IndexTreeActionResource(ContentNegotiatedMethodView):
 
             if pid:
                 if comm_id:
-                    comm = Community.get(comm_id)
+                    comm = None
+                    # comm = Community.get(comm_id)
                     tree = self.record_class.get_contribute_tree(
                         pid, int(comm.root_node_id))
                 else:
@@ -426,7 +430,8 @@ class IndexTreeActionResource(ContentNegotiatedMethodView):
                         more_ids=more_ids)
 
             elif action and 'browsing' in action and comm_id is not None:
-                comm = Community.get(comm_id)
+                comm = None
+                # comm = Community.get(comm_id)
 
                 if comm is not None:
                     if more_id_list is None:
@@ -449,10 +454,12 @@ class IndexTreeActionResource(ContentNegotiatedMethodView):
                         else:
                             role_ids.append(role.id)
                 if role_ids:
-                    from invenio_communities.models import Community
-                    comm_list = Community.query.filter(
-                        Community.id_role.in_(role_ids)
-                    ).all()
+                    # from invenio_communities.models import Community
+                    # from invenio_communities import models as Community
+                    comm_list = None
+                    # comm_list = Community.query.filter(
+                    #     Community.id_role.in_(role_ids)
+                    # ).all()
                     check_list = []
                     for comm in comm_list:
                         indexes = [

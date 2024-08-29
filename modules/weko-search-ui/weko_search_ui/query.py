@@ -31,7 +31,8 @@ from elasticsearch_dsl.query import Bool, Q
 from flask import current_app, request
 from flask_security import current_user
 from flask_babelex import get_timezone
-from invenio_communities.models import Community
+# from invenio_communities.models import Community
+# from invenio_communities import models as Community
 from invenio_records_rest.errors import InvalidQueryRESTError
 from weko_index_tree.api import Indexes
 from weko_index_tree.utils import get_user_roles
@@ -617,7 +618,8 @@ def default_search_factory(self, search, query_parser=None, search_type=None):
         :return: Query parser.
         """
         # add  Permission filter by publish date and status
-        comm = Community.get(community_id)
+        comm = None
+        # comm = Community.get(community_id)
         root_node_id = comm.root_node_id
 
         mst, _ = get_permission_filter(root_node_id)
@@ -684,7 +686,8 @@ def default_search_factory(self, search, query_parser=None, search_type=None):
         :returns: Query parser.
         """
         # add  Permission filter by publish date and status
-        comm = Community.get(community_id)
+        # comm = Community.get(community_id)
+        comm = None
         root_node_id = comm.root_node_id
         mst, _ = get_permission_filter(root_node_id)
 

@@ -1745,7 +1745,8 @@ class WorkActivity(object):
             if current_user and current_user.is_authenticated:
                 role_ids = [role.id for role in current_user.roles]
             if role_ids:
-                from invenio_communities.models import Community
+                from invenio_communities import models as Community
+                # comm_list = None
                 comm_list = Community.query.filter(
                     Community.id_role.in_(role_ids)
                 ).all()
@@ -2768,6 +2769,7 @@ class GetCommunity(object):
     @classmethod
     def get_community_by_id(cls, community_id):
         """Get Community by ID."""
-        from invenio_communities.models import Community
+        from invenio_communities import models as Community
+        # c = None
         c = Community.get(community_id)
         return c

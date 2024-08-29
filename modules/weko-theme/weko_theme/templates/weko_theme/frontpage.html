@@ -20,7 +20,8 @@
 
 {%- extends config.BASE_PAGE_TEMPLATE %}
 
-{%- from "invenio_communities/macros.html" import community_header %}
+{%- from "weko_communities/macros.html" import community_header %}
+<!-- {%- from "invenio_communities/macros.html" import community_header %} -->
 
 {%- block css %}
   {{ super() }}
@@ -65,7 +66,7 @@
   {%- else%}
     <div class="communities">
       <div id="community-id" name="community-id" hidden>{{ community_id }}</div>
-      {{ community_header(community, subtitle='') }}
+      <!-- {{ community_header(community, subtitle='') }} -->
       <div id="page_body" class="grid-stack collapse hidden">
         <div id="main_contents">
           {{ super() }}

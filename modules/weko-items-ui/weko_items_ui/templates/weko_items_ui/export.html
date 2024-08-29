@@ -20,7 +20,9 @@
 
 {%- extends config.WEKO_ITEMS_UI_BASE_TEMPLATE %}
 
-{%- from "invenio_communities/macros.html" import community_header %}
+<!-- {%- from "invenio_communities/macros.html" import community_header %} -->
+{%- from "weko_communities/macros.html" import community_header %}
+
 
 {%- block css %}
   {{ super() }}
@@ -48,7 +50,7 @@
   {%- else%}
     <div class="communities">  <!-- REFACTOR THIS for both here and body_contents.html -->
       <div id="community-id" name="community-id" hidden>{{ community_id }}</div>
-      {{ community_header(community, subtitle='') }}
+      <!-- {{ community_header(community, subtitle='') }} -->
       <div id="page_body" class="grid-stack hidden" {%- if render_widgets %}style="display: None;"{%- endif %}>
         <div id="main_contents">
           {{ super() }}

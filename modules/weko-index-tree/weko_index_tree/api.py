@@ -416,7 +416,9 @@ class Indexes(object):
                             role_ids.append(role.id)
                 if not ret['is_ok'] and role_ids:
                     can_edit_list = []
-                    from invenio_communities.models import Community
+                    # from invenio_communities.models import Community
+                    from invenio_communities import models as Community
+                    # comm_data = None
                     comm_data = Community.query.filter(
                         Community.id_role.in_(role_ids)
                     ).all()
@@ -842,7 +844,9 @@ class Indexes(object):
         :return: the list of index.
         """
         if community_id:
-            from invenio_communities.models import Community
+            # from invenio_communities.models import Community
+            from invenio_communities import models as Community
+            # community_obj = None
             community_obj = Community.get(community_id)
             recursive_t = cls.recs_query()
             query = db.session.query(recursive_t).filter(db.or_(

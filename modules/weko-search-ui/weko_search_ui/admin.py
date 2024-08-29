@@ -360,10 +360,12 @@ class ItemImportView(BaseView):
                 else:
                     role_ids.append(role.id)
         if role_ids:
-            from invenio_communities.models import Community
-            comm_data = Community.query.filter(
-                Community.id_role.in_(role_ids)
-            ).all()
+            # from invenio_communities.models import Community
+            # from invenio_communities import models as Community
+            comm_data = None
+            # comm_data = Community.query.filter(
+            #     Community.id_role.in_(role_ids)
+            # ).all()
             for comm in comm_data:
                 can_edit_indexes += [i.cid for i in Indexes.get_self_list(comm.root_node_id)]
             can_edit_indexes = list(set(can_edit_indexes))

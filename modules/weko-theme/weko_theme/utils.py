@@ -28,9 +28,12 @@ from elasticsearch_dsl.query import QueryString, Range
 from flask import current_app, request
 from flask_babelex import gettext as _
 from flask_login import current_user
-from invenio_communities.forms import SearchForm
-from invenio_communities.models import Community, FeaturedCommunity
-from invenio_communities.utils import Pagination
+# from invenio_communities.forms import SearchForm
+# from invenio_communities import forms as SearchForm
+# from invenio_communities.models import Community, FeaturedCommunity
+# from invenio_communities import models as Community, FeaturedCommunity
+# from invenio_communities.utils import Pagination
+# from invenio_communities import utils as Pagination
 from invenio_i18n.ext import current_i18n
 from invenio_search import RecordsSearch
 from weko_admin.models import AdminSettings, RankingSettings, SearchManagement
@@ -205,19 +208,24 @@ class MainScreenInitDisplaySetting:
 
     @classmethod
     def __communities(cls, main_screen_display_setting):
-        from invenio_communities.views.ui import mycommunities_ctx
-        ctx = mycommunities_ctx()
+        # from invenio_communities import mycommunities_ctx
+        ctx = None
+        # ctx = mycommunities_ctx()
         p = request.args.get('p', type=str)
         so = request.args.get('so', type=str)
         page = request.args.get('page', type=int, default=1)
         so = so or current_app.config.get(
             'COMMUNITIES_DEFAULT_SORTING_OPTION')
-        communities = Community.filter_communities(p, so)
-        featured_community = FeaturedCommunity.get_featured_or_none()
-        form = SearchForm(p=p)
+        # communities = Community.filter_communities(p, so)
+        communities = None
+        # featured_community = FeaturedCommunity.get_featured_or_none()
+        featured_community = None
+        # form = SearchForm(p=p)
+        form = None
         per_page = 10
         page = max(page, 1)
-        p = Pagination(page, per_page, communities.count())
+        # p = Pagination(page, per_page, communities.count())
+        p = None
         main_screen_display_setting.update({
             'r_from': max(p.per_page * (p.page - 1), 0),
             'r_to': min(p.per_page * p.page, p.total_count),

@@ -209,6 +209,7 @@ invenio-search==1.1.0
 invenio-search-ui==1.0.0a9
 invenio-theme==1.0.0b4
 invenio-csl-rest==1.0.0a1
+invenio-communities==12.2.0
 #
 # requirements-weko-modules.txt
 #
@@ -221,7 +222,6 @@ invenio-csl-rest==1.0.0a1
 -e ../invenio-previewer
 -e ../invenio-stats
 -e ../invenio-records-rest
--e ../invenio-communities
 -e ../invenio-mail
 -e ../invenio-indexer
 -e ../invenio-deposit
@@ -254,3 +254,4 @@ invenio-csl-rest==1.0.0a1
 -e ../weko-sitemap
 -e ../invenio-iiif
 -e ../weko-redis
+-e ../weko-communities

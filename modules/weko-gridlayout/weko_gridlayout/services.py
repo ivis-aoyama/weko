@@ -426,9 +426,11 @@ class WidgetDesignServices:
             "error": ""
         }
         try:
-            from invenio_communities.models import Community
+            # from invenio_communities.models import Community
+            # from invenio_communities import models as Community
             with db.session.no_autoflush:
-                communities = Community.query.all()
+                communities = None
+                # communities = Community.query.all()
             if communities:
                 for community in communities:
                     community_result = dict()

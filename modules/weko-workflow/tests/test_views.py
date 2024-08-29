@@ -36,7 +36,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
 import uuid
-from invenio_communities.models import Community
+# from invenio_communities.models import Community
 from invenio_pidstore.errors import PIDDoesNotExistError,PIDDeletedError
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus
 
@@ -3278,7 +3278,8 @@ def test_display_activity(client, users, db_register,mocker,redis_connect,withou
     test_pid.pid_value = '1'
     # test_pid= dict(created=datetime.strptime("2022-09-22 05:09:48.085724", "%Y-%m-%d %H:%M:%S.%f"),updated=datetime.strptime("2022-09-22 05:09:48.085747", "%Y-%m-%d %H:%M:%S.%f"),
     #             id=3, pid_type='recid',pid_value='1',pid_provider='',status='R',object_type='rec',object_uuid='37075580-8442-4402-beee-05f62e6e1dc2')
-    test_comm= Community()
+    # test_comm= Community()
+    test_comm=None
     test_comm.id = 'test'
     # test_comm=  dict(created=datetime.strptime("2022-09-22 05:09:48.085724", "%Y-%m-%d %H:%M:%S.%f"),updated=datetime.strptime("2022-09-22 05:09:48.085747", "%Y-%m-%d %H:%M:%S.%f"),
     #             id='test',id_role=1,id_user=1,title='test',description='',page='',curation_policy='',community_header='',community_footer='',last_record_accepted=datetime.strptime("2000-01-01 00:00:00", "%Y-%m-%d %H:%M:%S"),

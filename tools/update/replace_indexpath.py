@@ -25,7 +25,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from flask import current_app
 from invenio_oaiserver import current_oaiserver
 from invenio_oaiserver.models import OAISet
-from invenio_communities.config import COMMUNITIES_OAI_FORMAT
+# from invenio_communities.config import COMMUNITIES_OAI_FORMAT
+# from invenio_communities import config as COMMUNITIES_OAI_FORMAT
 from invenio_records.models import RecordMetadata
 from elasticsearch.exceptions import TransportError
 from weko_deposit.api import WekoDeposit
@@ -128,7 +129,8 @@ def update_oai_sets ():
     current_app.logger.debug("len(sets_missed): {0}".format(len(sets_missed)))
     current_app.logger.debug("sets_totals: {0}".format(sets_totals))
 
-    com_prefix = COMMUNITIES_OAI_FORMAT.replace('{community_id}', '')
+    com_prefix = None
+    # com_prefix = COMMUNITIES_OAI_FORMAT.replace('{community_id}', '')
 
     for oaiset in oai_sets:
         if oaiset.id in index_ids:

@@ -7,7 +7,8 @@ import traceback
 
 import sqlalchemy
 from flask import current_app
-from invenio_communities.models import Community
+# from invenio_communities.models import Community
+# from invenio_communities import models as Community
 from invenio_db import db
 from invenio_files_rest.models import FileInstance, ObjectVersion
 from invenio_indexer.api import RecordIndexer
@@ -63,7 +64,8 @@ def addOAISet(community_id):
     Args:
         community_id (string): community id
     """
-    c = Community.get(community_id)
+    # c = Community.get(community_id)
+    c = None
     if c is not None:
         _addOAISet(c.id)
     else:
@@ -83,7 +85,8 @@ def _addOAISet(id):
     # res = helpers.scan(es, index=os.environ.get(
     #    'SEARCH_INDEX_PREFIX', 'tenant1')+"-weko-item-v1.0.0", preserve_order=True, query=_query)
 
-    c = Community.get(id)
+    # c = Community.get(id)
+    c = None
 
     res = RecordMetadata.query.filter(
         cast(RecordMetadata.json['path'], sqlalchemy.String).like(
@@ -128,7 +131,8 @@ def _addOAISet(id):
 
 def addOAISetToAll():
     start = time.time()
-    cl = Community.query.all()
+    # cl = Community.query.all()
+    cl = None
     c_id_list = []
     for c in cl:
         c_id_list.append(c.id)

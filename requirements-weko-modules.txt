@@ -7,7 +7,6 @@
 -e /code/modules/invenio-previewer
 -e /code/modules/invenio-stats
 -e /code/modules/invenio-records-rest
--e /code/modules/invenio-communities
 -e /code/modules/invenio-mail
 -e /code/modules/invenio-indexer
 -e /code/modules/invenio-deposit
@@ -41,3 +40,4 @@
 -e /code/modules/invenio-iiif
 -e /code/modules/weko-redis
 -e /code/modules/weko-swordserver
+-e /code/modules/weko-communities

@@ -7,7 +7,6 @@
                 <exclude_filter>./tools</exclude_filter>
                 <exclude_filter>./scripts</exclude_filter>
                 <exclude_filter>./modules/invenio-accounts/tests</exclude_filter>
-                <exclude_filter>./modules/invenio-communities/tests</exclude_filter>
                 <exclude_filter>./modules/invenio-db/tests</exclude_filter>
                 <exclude_filter>./modules/invenio-deposit/tests</exclude_filter>
                 <exclude_filter>./modules/invenio-files-rest/tests</exclude_filter>
@@ -48,6 +47,7 @@
                 <exclude_filter>./modules/weko-theme/tests</exclude_filter>
                 <exclude_filter>./modules/weko-user-profiles/tests</exclude_filter>
                 <exclude_filter>./modules/weko-workflow/tests</exclude_filter>
+                <exclude_filter>./modules/weko-communities/tests</exclude_filter>
             </exclude_filters>
             <name>Python Source Group</name>
             <source_extensions>
