@@ -80,7 +80,7 @@ def test_update_oaiset_setting(i18n_app, client_api, indices, db, users, without
     assert res.name=="testIndexThree"
     assert res.description=="testIndexThree"
     assert res.search_pattern=='path:"33"'
-    assert res.system_created==False    
+    assert res.system_created==True    
     assert res.spec=="33"
 
     update_oaiset_setting(index_info_two[0], data_two)
@@ -124,7 +124,7 @@ def test_update_oaiset_setting(i18n_app, client_api, indices, db, users, without
         "id": 66,
         "index_name": "testData",
         "search_pattern": "test search",
-        "system_created": False
+        "system_created": True
     }
 
     res = OAISet.query.filter_by(id=66).one_or_none()
