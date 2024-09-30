@@ -2684,6 +2684,34 @@ class TestWekoRecord:
                 key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
             mock_logger.reset_mock()
 
+#     def items_show_list(self):
+    # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_items_show_list -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
+    def test_items_show_list2(self, app, es_records_n, users, db_itemtype2, db_admin_settings):
+        with patch('weko_deposit.api.weko_logger') as mock_logger:
+            record = WekoRecord({})
+
+            # print(results)
+            indexer, results = es_records_n
+            result = results[0]
+            record = result['record']
+            with patch("flask_login.utils._get_user", return_value=users[1]["obj"]):
+                assert record.items_show_list == [{'attribute_name': 'PubDate', 'attribute_value': '2022-08-20', 'attribute_name_i18n': 'PubDate'}, {'attribute_name': 'Title', 'attribute_name_i18n': 'Title', 'attribute_type': None, 'attribute_value_mlt': [[[[{'Title': 'タイトル'}], [{'Language': 'ja'}]]], [[[{'Title': 'title'}], [{'Language': 'en'}]]]]}, {'attribute_name': 'Resource Type', 'attribute_name_i18n': 'Resource Type', 'attribute_type': None, 'attribute_value_mlt': [[[[{'Resource Type': 'conference paper'}], [{'Resource Type Identifier': 'http://purl.org/coar/resource_type/c_5794'}]]]]}, {
+                    'attribute_name': 'File', 'attribute_name_i18n': 'File', 'attribute_type': 'file', 'attribute_value_mlt': [[[[{'dateType': 'Available', 'item_1617605131499[].date[0].dateValue': '2022-09-07'}]], [{'item_1617605131499[].url': 'https://weko3.example.org/record/1/files/hello.txt'}], [[{'item_1617605131499[].filesize[].value': '146 KB'}]], {'version_id': '{}'.format(record.files['hello.txt'].version_id), 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk', 'item_1617605131499[].filename': 'hello.txt', 'item_1617605131499[].format': 'plain/text', 'item_1617605131499[].accessrole': 'open_access'}]]},
+                    # {'attribute_name': 'thumbnail', 'attribute_type': 'object'}, 
+                    ]
+                
+            # todo26
+            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
+            mock_logger.assert_any_call(
+                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
+            mock_logger.assert_any_call(
+                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
+            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
+            mock_logger.assert_any_call(
+                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
+            mock_logger.reset_mock()
+
+
     #     def display_file_info(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_display_file_info -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_display_file_info(self, app, es_records, db_itemtype):
