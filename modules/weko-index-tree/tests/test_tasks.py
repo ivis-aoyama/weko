@@ -152,7 +152,8 @@ def test_delete_oaiset_setting(i18n_app, indices, db_oaischema, without_oaiset_s
         spec='33',
         name='test_name_33',
         description='some test description',
-        search_pattern='test search'
+        search_pattern='test search',
+        system_created=True
     )
 
     test_set_two = OAISet(
@@ -160,7 +161,8 @@ def test_delete_oaiset_setting(i18n_app, indices, db_oaischema, without_oaiset_s
         spec='44',
         name='test_name_44',
         description='some test description',
-        search_pattern='test search'
+        search_pattern='test search',
+        system_created=True
     )
     
     db.session.add(test_set_one)

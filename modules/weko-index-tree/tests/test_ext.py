@@ -7,7 +7,8 @@ def test_WekoIndexTree(app, db):
     app.config['BASE_EDIT_TEMPLATE'] = ''
     WekoIndexTree(app)
     app.config.pop('BASE_EDIT_TEMPLATE')
-    WekoIndexTree(app)
+    if 'weko_index_tree' not in app.blueprints:
+        WekoIndexTree(app)
 
 # class WekoIndexTreeREST(object):
 # .tox/c1/bin/pytest --cov=weko_index_tree tests/test_ext.py::test_WekoIndexTreeREST -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-index-tree/.tox/c1/tmp

@@ -157,32 +157,32 @@ def test_get_user_roles(i18n_app, client_rest, users):
     with patch("flask_login.utils._get_user", return_value=users[3]['obj']):
         result = get_user_roles(is_super_role=True)
         assert result[0] == True
-        assert result[1] == [1]
+        assert result[1] == ['System Administrator']
 
         result = get_user_roles(is_super_role=False)
         assert result[0] == True
-        assert result[1] == [1]
+        assert result[1] == ['System Administrator']
 
     # comadmin
     with patch("flask_login.utils._get_user", return_value=users[4]['obj']):
         result = get_user_roles(is_super_role=True)
         assert result[0] == True
-        assert result[1] == [4]
+        assert result[1] == ['Community Administrator']
 
         result = get_user_roles(is_super_role=False)
         assert result[0] == False
-        assert result[1] == [4]
+        assert result[1] == ['Community Administrator']
 
 
     # not admin user
     with patch("flask_login.utils._get_user", return_value=users[1]['obj']):
         result = get_user_roles(is_super_role=True)
         assert result[0] == False
-        assert result[1] == [3]
+        assert result[1] == ['Contributor']
 
         result = get_user_roles(is_super_role=False)
         assert result[0] == False
-        assert result[1] == [3]
+        assert result[1] == ['Contributor']
 
     # User not authenticated
     result = get_user_roles()
@@ -207,22 +207,23 @@ def test_get_user_groups(i18n_app, client_rest, users, db):
 
 # .tox/c1/bin/pytest --cov=weko_index_tree tests/test_utils.py::test_check_roles -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-index-tree/.tox/c1/tmp
 #+++ def check_roles(user_role, roles):
-def test_check_roles(users):
-    # admin user
-    user_role = (True, [])
-    roles = ["1","2"]
-    check_roles(user_role, roles)
+def test_check_roles(app,users):
+    with app.test_request_context():
+        # admin user
+        user_role = (True, [])
+        roles = ["1","2"]
+        check_roles(user_role, roles)
 
-    # not admin user
-    ## not login
-    ### not allow -99
-    user_role = (False,[])
-    roles = "1,2"
-    assert check_roles(user_role, roles) == False
-    ### allow -99
-    user_role = (False,[])
-    roles = "1,2,-99"
-    assert check_roles(user_role, roles) == True
+        # not admin user
+        ## not login
+        ### not allow -99
+        user_role = (False,[])
+        roles = "1,2"
+        assert check_roles(user_role, roles) == False
+        ### allow -99
+        user_role = (False,[])
+        roles = "1,2,-99"
+        assert check_roles(user_role, roles) == True
     ## login
     with patch("flask_login.utils._get_user", return_value=users[-1]['obj']):
     ### all allow
@@ -484,8 +485,9 @@ def test_check_doi_in_index(i18n_app, indices, db_records):
 
 #*** def get_record_in_es_of_index(index_id, recursively=True):
 def test_get_record_in_es_of_index(i18n_app, indices, db_records, esindex):
-    # Test 1
-    assert not get_record_in_es_of_index(44, recursively=False)
+    with patch.dict(current_app.config, {'SEARCH_INDEX_PREFIX': ""}):
+        # Test 1
+        assert not get_record_in_es_of_index(44, recursively=False)
 
     # Test 2
     # assert get_record_in_es_of_index(33)
@@ -523,8 +525,9 @@ def test_check_restrict_doi_with_indexes(i18n_app, indices, db_records):
 
 #*** def check_has_any_item_in_index_is_locked(index_id):
 def test_check_has_any_item_in_index_is_locked(i18n_app, indices, records, esindex):
-    # Test 1
-    assert not check_has_any_item_in_index_is_locked(33)
+    with patch.dict(current_app.config, {'SEARCH_INDEX_PREFIX': ""}):
+        # Test 1
+        assert not check_has_any_item_in_index_is_locked(33)
 
     # Test 2
     # assert check_has_any_item_in_index_is_locked(33)
@@ -552,7 +555,8 @@ def test_check_index_permissions(app, db, users, test_indices, db_records):
 # def test_check_doi_in_index_and_child_index(i18n_app, indices, esindex, db_records, records2):
 def test_check_doi_in_index_and_child_index(i18n_app, users, indices, esindex):
     # Test 1
-    assert len(check_doi_in_index_and_child_index(33, recursively=True)) == 0
+    with patch.dict(current_app.config, {'SEARCH_INDEX_PREFIX': ""}):
+        assert len(check_doi_in_index_and_child_index(33, recursively=True)) == 0
 
     # Test 2
     # assert len(check_doi_in_index_and_child_index(33, recursively=True)) > 0
