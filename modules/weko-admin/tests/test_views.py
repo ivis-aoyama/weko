@@ -43,103 +43,104 @@ def test_has_admin_access(client,users):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_views.py::test_set_lifetime -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
 def test_set_lifetime(client,db,users):
     login_user_via_session(client,email=users[0]["email"])
-
-    # exist sessino life time
-    url = url_for("weko_admin.set_lifetime",minutes=200)
-    res = client.get(url)
-    assert response_data(res) == {"code":0,"msg":"Session lifetime was updated."}
-    assert SessionLifetime.query.filter_by(is_delete=False).first().lifetime == 200
-
-    SessionLifetime.query.filter_by(id=1).delete()
-    db.session.commit()
-    # not exist session life time
-    url = url_for("weko_admin.set_lifetime",minutes=100)
-    res = client.get(url)
-    assert response_data(res) == {"code":0,"msg":"Session lifetime was updated."}
-    assert SessionLifetime.query.filter_by(is_delete=False).first().lifetime == 100
-
-    # raises BaseException
-    with patch("weko_admin.views.SessionLifetime.get_validtime",side_effect=BaseException("test_error")):
+    with patch("invenio_files_rest.views.db.session.remove"):
+        # exist sessino life time
+        url = url_for("weko_admin.set_lifetime",minutes=200)
         res = client.get(url)
-        assert res.status_code == 400
+        assert response_data(res) == {"code":0,"msg":"Session lifetime was updated."}
+        assert SessionLifetime.query.filter_by(is_delete=False).first().lifetime == 200
+
+        SessionLifetime.query.filter_by(id=1).delete()
+        db.session.commit()
+        # not exist session life time
+        url = url_for("weko_admin.set_lifetime",minutes=100)
+        res = client.get(url)
+        assert response_data(res) == {"code":0,"msg":"Session lifetime was updated."}
+        assert SessionLifetime.query.filter_by(is_delete=False).first().lifetime == 100
+
+        # raises BaseException
+        with patch("weko_admin.views.SessionLifetime.get_validtime",side_effect=BaseException("test_error")):
+            res = client.get(url)
+            assert res.status_code == 400
 
 
 #def lifetime():
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_views.py::test_lifetime -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
 def test_lifetime(client,users,db):
-    url = url_for("weko_admin.lifetime")
-    # not login
-    res = client.get(url)
-    assert res.status_code == 302
-
-    # not sysadmin
-    login(client,obj=users[4]["obj"])
-    res = client.get(url)
-    assert res.status_code == 403
-    logout(client)
-
-    email = users[0]["email"]
-    passwd = users[0]["obj"].password_plaintext
-    #login(client,obj=users[0]["obj"])
-    login(client,email=email,password=passwd)
-
-
-    db.session.add(SessionLifetime(lifetime=100))
-    db.session.commit()
-    # method is POST, submit is lifetime
-    mock_render = patch("weko_admin.views.render_template",return_value=make_response())
-    mock_flash = patch("weko_admin.views.flash")
-    res = client.post(url,data={"submit":"lifetime","lifetimeRadios":"45"})
-    assert res.status_code == 200
-    mock_render.assert_called_with(
-        "weko_admin/settings/lifetime.html",
-        current_lifetime="45",
-        map_lifetime=[("15",_("15 mins")),("30",_("30 mins")),("45",_("45 mins")),("60",_("60 mins")),
-                      ("180",_("180 mins")),("360",_("360 mins")),("720",_("720 mins")),("1440",_("1440 mins"))],
-        form="lifetime"
-    )
-    mock_flash.assert_called_with("Session lifetime was updated.",category="success")
-
-    # method is POST, submit is not lifitime
-    mock_render = patch("weko_admin.views.render_template",return_value=make_response())
-    res = client.post(url,data={"submit":"not lifetime"})
-    assert res.status_code == 200
-    mock_render.assert_called_with(
-        "weko_admin/settings/lifetime.html",
-        current_lifetime="45",
-        map_lifetime=[("15",_("15 mins")),("30",_("30 mins")),("45",_("45 mins")),("60",_("60 mins")),
-                      ("180",_("180 mins")),("360",_("360 mins")),("720",_("720 mins")),("1440",_("1440 mins"))],
-        form="not lifetime"
-    )
-
-    # method is not POST, session_lifetime is None
-    SessionLifetime.query.delete()
-    db.session.commit()
-    mock_render = patch("weko_admin.views.render_template", return_value=make_response())
-    res = client.get(url)
-    assert res.status_code == 200
-    args, kwargs = mock_render.call_args
-    assert args[0] == "weko_admin/settings/lifetime.html"
-    assert kwargs["current_lifetime"] == "30"
-    assert kwargs["map_lifetime"] == [("15",_("15 mins")),("30",_("30 mins")),("45",_("45 mins")),("60",_("60 mins")),
-                      ("180",_("180 mins")),("360",_("360 mins")),("720",_("720 mins")),("1440",_("1440 mins"))]
-
-
-    # raises ValueError
-    with patch("weko_admin.views.SessionLifetime.get_validtime",side_effect=ValueError("test_error")):
+    with patch("invenio_files_rest.views.db.session.remove"):
+        url = url_for("weko_admin.lifetime")
+        # not login
         res = client.get(url)
-        assert res.status_code == 400
+        assert res.status_code == 302
 
-    # raises BaseException
-    with patch("weko_admin.views.SessionLifetime.get_validtime",side_effect=BaseException("test_error")):
+        # not sysadmin
+        login(client,obj=users[4]["obj"])
         res = client.get(url)
-        assert res.status_code == 400
+        assert res.status_code == 403
+        logout(client)
+
+        email = users[0]["email"]
+        passwd = users[0]["obj"].password_plaintext
+        #login(client,obj=users[0]["obj"])
+        login(client,email=email,password=passwd)
 
 
-    assert current_menu.submenu("settings.lifetime").active == True
-    assert current_menu.submenu("settings.lifetime").url == "/accounts/settings/session/"
-    assert current_menu.submenu("settings.lifetime").text == '<i class="fa fa-cogs fa-fw"></i> Session'
-    assert list(map(lambda x:x.url,list(current_breadcrumbs))) == ["#","#","#","/accounts/settings/session/"]
+        db.session.add(SessionLifetime(lifetime=100))
+        db.session.commit()
+        # method is POST, submit is lifetime
+        mock_render = patch("weko_admin.views.render_template",return_value=make_response())
+        mock_flash = patch("weko_admin.views.flash")
+        res = client.post(url,data={"submit":"lifetime","lifetimeRadios":"45"})
+        assert res.status_code == 200
+        mock_render.assert_called_with(
+            "weko_admin/settings/lifetime.html",
+            current_lifetime="45",
+            map_lifetime=[("15",_("15 mins")),("30",_("30 mins")),("45",_("45 mins")),("60",_("60 mins")),
+                        ("180",_("180 mins")),("360",_("360 mins")),("720",_("720 mins")),("1440",_("1440 mins"))],
+            form="lifetime"
+        )
+        mock_flash.assert_called_with("Session lifetime was updated.",category="success")
+
+        # method is POST, submit is not lifitime
+        mock_render = patch("weko_admin.views.render_template",return_value=make_response())
+        res = client.post(url,data={"submit":"not lifetime"})
+        assert res.status_code == 200
+        mock_render.assert_called_with(
+            "weko_admin/settings/lifetime.html",
+            current_lifetime="45",
+            map_lifetime=[("15",_("15 mins")),("30",_("30 mins")),("45",_("45 mins")),("60",_("60 mins")),
+                        ("180",_("180 mins")),("360",_("360 mins")),("720",_("720 mins")),("1440",_("1440 mins"))],
+            form="not lifetime"
+        )
+
+        # method is not POST, session_lifetime is None
+        SessionLifetime.query.delete()
+        db.session.commit()
+        mock_render = patch("weko_admin.views.render_template", return_value=make_response())
+        res = client.get(url)
+        assert res.status_code == 200
+        args, kwargs = mock_render.call_args
+        assert args[0] == "weko_admin/settings/lifetime.html"
+        assert kwargs["current_lifetime"] == "30"
+        assert kwargs["map_lifetime"] == [("15",_("15 mins")),("30",_("30 mins")),("45",_("45 mins")),("60",_("60 mins")),
+                        ("180",_("180 mins")),("360",_("360 mins")),("720",_("720 mins")),("1440",_("1440 mins"))]
+
+
+        # raises ValueError
+        with patch("weko_admin.views.SessionLifetime.get_validtime",side_effect=ValueError("test_error")):
+            res = client.get(url)
+            assert res.status_code == 400
+
+        # raises BaseException
+        with patch("weko_admin.views.SessionLifetime.get_validtime",side_effect=BaseException("test_error")):
+            res = client.get(url)
+            assert res.status_code == 400
+
+
+        assert current_menu.submenu("settings.lifetime").active == True
+        assert current_menu.submenu("settings.lifetime").url == "/accounts/settings/session/"
+        assert current_menu.submenu("settings.lifetime").text == '<i class="fa fa-cogs fa-fw"></i> Session'
+        assert list(map(lambda x:x.url,list(current_breadcrumbs))) == ["#","#","#","/accounts/settings/session/"]
 
 
 #def session_info_offline():
@@ -203,19 +204,20 @@ def test_save_lang_list(api, users, redis_connect):
     os.environ['INVENIO_WEB_HOST_NAME'] = "test"
     url = url_for("weko_admin.save_lang_list")
     login_user_via_session(client=api, email=users[0]["email"])
-    redis_connect.put("index_tree_view_test_ja","test_ja_index_tree".encode("UTF-8"),ttl_secs=30)
-    redis_connect.put("index_tree_view_test_en","test_en_index_tree".encode("UTF-8"),ttl_secs=30)
-    # content_type != application/json
-    res = api.post(url,data="test_data",content_type="plain/text")
-    assert response_data(res) == {"msg":"Header Error"}
+    with patch("invenio_files_rest.views.db.session.remove"):
+        redis_connect.put("index_tree_view_test_ja","test_ja_index_tree".encode("UTF-8"),ttl_secs=30)
+        redis_connect.put("index_tree_view_test_en","test_en_index_tree".encode("UTF-8"),ttl_secs=30)
+        # content_type != application/json
+        res = api.post(url,data="test_data",content_type="plain/text")
+        assert response_data(res) == {"msg":"Header Error"}
 
-    # content_type = application/json
-    data = [{"lang_code":"ja","is_registered":True},{"lang_code":"en","is_registered":False}]
-    with patch("weko_admin.views.update_admin_lang_setting",return_value="success"):
-        res = api.post(url,json=data)
-        assert redis_connect.redis.exists("index_tree_view_test_ja") == True
-        assert redis_connect.redis.exists("index_tree_view_test_en") == False
-        assert response_data(res) == {"msg":"success"}
+        # content_type = application/json
+        data = [{"lang_code":"ja","is_registered":True},{"lang_code":"en","is_registered":False}]
+        with patch("weko_admin.views.update_admin_lang_setting",return_value="success"):
+            res = api.post(url,json=data)
+            assert redis_connect.redis.exists("index_tree_view_test_ja") == True
+            assert redis_connect.redis.exists("index_tree_view_test_en") == False
+            assert response_data(res) == {"msg":"success"}
 
 
 #def get_selected_lang():
@@ -285,27 +287,29 @@ def test_save_api_cert_data_acl_guest(api):
 def test_save_api_cert_data(api, users):
     url = url_for("weko_admin.save_api_cert_data")
     login_user_via_session(client=api, email=users[0]["email"])
-    # content_type != application/json
-    res = api.post(url,data="test_data",content_type="plain/text")
-    assert response_data(res) == {"error":"Header Error"}
+    
+    with patch("invenio_files_rest.views.db.session.remove"):
+        # content_type != application/json
+        res = api.post(url,data="test_data",content_type="plain/text")
+        assert response_data(res) == {"error":"Header Error"}
 
-    # cert_data is None
-    data = {"api_code":"","cert_data":None}
-    res = api.post(url,json=data)
-    assert response_data(res) == {"error":"Account information is invalid. Please check again."}
-
-    # validate_certification is True
-    with patch("weko_admin.views.validate_certification",return_value=True):
-        with patch("weko_admin.views.save_api_certification",return_value={"results":"success","error":""}):
-            data = {"api_code":"","cert_data":"test_cert_data"}
-            res = api.post(url,json=data)
-            assert response_data(res) == {"results":"success","error":""}
-
-    # else
-    with patch("weko_admin.views.validate_certification",return_value=False):
-        data = {"api_code":"","cert_data":"test_cert_data"}
+        # cert_data is None
+        data = {"api_code":"","cert_data":None}
         res = api.post(url,json=data)
         assert response_data(res) == {"error":"Account information is invalid. Please check again."}
+
+        # validate_certification is True
+        with patch("weko_admin.views.validate_certification",return_value=True):
+            with patch("weko_admin.views.save_api_certification",return_value={"results":"success","error":""}):
+                data = {"api_code":"","cert_data":"test_cert_data"}
+                res = api.post(url,json=data)
+                assert response_data(res) == {"results":"success","error":""}
+
+        # else
+        with patch("weko_admin.views.validate_certification",return_value=False):
+            data = {"api_code":"","cert_data":"test_cert_data"}
+            res = api.post(url,json=data)
+            assert response_data(res) == {"error":"Account information is invalid. Please check again."}
 
 
 #def get_init_selection(selection=""):
@@ -315,7 +319,7 @@ def test_get_init_selection(api):
     patch("weko_admin.views.get_unit_stats_report",return_value={"unit":["test_value"]})
 
     # selection = target
-    url = url_for("weko_admin.get_init_selection",selection="target")
+    url = url_for("weko_admin.get_init_selection",selection='target')
     res = api.get(url)
     assert response_data(res) == {"target":[{"id":"1","data":"test_data"}]}
 
@@ -389,15 +393,16 @@ def test_update_feedback_mail_guest(api):
 def test_update_feedback_mail(api, users):
     url = url_for("weko_admin.update_feedback_mail")
     login_user_via_session(client=api, email=users[0]["email"])
-    # update success
-    with patch("weko_admin.views.FeedbackMail.update_feedback_email_setting", return_value={"error":""}):
-        res = api.post(url,json={})
-        assert response_data(res) == {"success":True, "error":""}
+    with patch("invenio_files_rest.views.db.session.remove"):
+        # update success
+        with patch("weko_admin.views.FeedbackMail.update_feedback_email_setting", return_value={"error":""}):
+            res = api.post(url,json={})
+            assert response_data(res) == {"success":True, "error":""}
 
-    # update failed
-    with patch("weko_admin.views.FeedbackMail.update_feedback_email_setting", return_value={"error":"Cannot update Feedback email settings."}):
-        res = api.post(url,json={})
-        assert response_data(res) == {"success":False, "error":"Cannot update Feedback email settings."}
+        # update failed
+        with patch("weko_admin.views.FeedbackMail.update_feedback_email_setting", return_value={"error":"Cannot update Feedback email settings."}):
+            res = api.post(url,json={})
+            assert response_data(res) == {"success":False, "error":"Cannot update Feedback email settings."}
 
 
 #def get_feedback_mail():
@@ -426,15 +431,16 @@ def test_get_feedback_mail_acl_guest(api):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_views.py::test_get_feedback_mail -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
 def test_get_feedback_mail(api, users):
     login_user_via_session(client=api, email=users[0]["email"])
-    url = url_for("weko_admin.get_feedback_mail")
-    with patch("weko_admin.views.FeedbackMail.get_feed_back_email_setting",return_value={"data":["datas"],"is_sending_feedback":True,"root_url":"http://test.com","error":""}):
-        res = api.post(url)
-        assert response_data(res) == {"data":["datas"],"is_sending_feedback":True,"error":""}
+    with patch("invenio_files_rest.views.db.session.remove"):
+        url = url_for("weko_admin.get_feedback_mail")
+        with patch("weko_admin.views.FeedbackMail.get_feed_back_email_setting",return_value={"data":["datas"],"is_sending_feedback":True,"root_url":"http://test.com","error":""}):
+            res = api.post(url)
+            assert response_data(res) == {"data":["datas"],"is_sending_feedback":True,"error":""}
 
-    # data.get(error)
-    with patch("weko_admin.views.FeedbackMail.get_feed_back_email_setting",return_value={"error":"test_error"}):
-        res = api.post(url)
-        assert response_data(res) == {"data":"","is_sending_feedback":"","error":"test_error"}
+        # data.get(error)
+        with patch("weko_admin.views.FeedbackMail.get_feed_back_email_setting",return_value={"error":"test_error"}):
+            res = api.post(url)
+            assert response_data(res) == {"data":"","is_sending_feedback":"","error":"test_error"}
 
 
 #def get_send_mail_history():
@@ -647,70 +653,71 @@ def test_update_site_info(api, users):
 def test_get_site_info(api,db,users,site_info):
     url = url_for("weko_admin.get_site_info")
     login_user_via_session(client=api, email=users[0]["email"])
-    with patch("weko_admin.views.SiteInfo.get",return_value=None):
+    with patch("invenio_files_rest.views.db.session.remove"):
+        with patch("weko_admin.views.SiteInfo.get",return_value=None):
+            res = api.get(url)
+            assert res.status_code == 200
+            assert response_data(res) == {"google_tracking_id_user":"test_google_tracking_id","addthis_user_id":"test_addthis_user_id"}
+
+            current_app.config.pop("GOOGLE_TRACKING_ID_USER")
+            current_app.config.pop("ADDTHIS_USER_ID")
+            res = api.get(url)
+            assert res.status_code == 200
+            assert response_data(res) == {}
+
+        current_app.config["GOOGLE_TRACKING_ID_USER"] = "test_tracking_id"
+        current_app.config["ADDTHIS_USER_ID"] = "ra-5d8af23e9a3a2633"
+        test = {
+            "copy_right":"test_copy_right1",
+            "description":"test site info1.",
+            "keyword":"test keyword1",
+            "favicon":"test,favicon1",
+            "favicon_name":"test favicon name1",
+            "site_name":[{"name":"name11"}],
+            "notify":{"name":"notify11"},
+            "google_tracking_id_user":"11",
+            "addthis_user_id":"12",
+            "ogp_image":"http://test_server/api/admin/ogp_image",
+            "ogp_image_name":"test ogp image name1"
+        }
+        #with patch("weko_admin.views.SiteInfo.get",return_value=site_info[0]):
         res = api.get(url)
-        assert res.status_code == 200
-        assert response_data(res) == {"google_tracking_id_user":"test_google_tracking_id","addthis_user_id":"test_addthis_user_id"}
+        assert response_data(res) == test
+
+        test = {
+            "copy_right":"test_copy_right2",
+            "description":"test site info2.",
+            "keyword":"test keyword2",
+            "favicon":"test favicon2",
+            "favicon_name":"test favicon name2",
+            "site_name":{"name":"name21"},
+            "notify":{"name":"notify21"},
+            "google_tracking_id_user":None,
+            "addthis_user_id":None,
+        }
+        SiteInfo.query.delete()
+        db.session.commit()
+        db.session.add(site_info[1])
+        db.session.commit()
+        #with patch("weko_admin.views.SiteInfo.get",return_value=site_info[1]):
+        res = api.get(url)
+        assert response_data(res) == test
 
         current_app.config.pop("GOOGLE_TRACKING_ID_USER")
         current_app.config.pop("ADDTHIS_USER_ID")
+        test = {
+            "copy_right":"test_copy_right2",
+            "description":"test site info2.",
+            "keyword":"test keyword2",
+            "favicon":"test favicon2",
+            "favicon_name":"test favicon name2",
+            "site_name":{"name":"name21"},
+            "notify":{"name":"notify21"},
+            "google_tracking_id_user":None,
+            "addthis_user_id":None,
+        }
         res = api.get(url)
-        assert res.status_code == 200
-        assert response_data(res) == {}
-
-    current_app.config["GOOGLE_TRACKING_ID_USER"] = "test_tracking_id"
-    current_app.config["ADDTHIS_USER_ID"] = "ra-5d8af23e9a3a2633"
-    test = {
-        "copy_right":"test_copy_right1",
-        "description":"test site info1.",
-        "keyword":"test keyword1",
-        "favicon":"test,favicon1",
-        "favicon_name":"test favicon name1",
-        "site_name":[{"name":"name11"}],
-        "notify":{"name":"notify11"},
-        "google_tracking_id_user":"11",
-        "addthis_user_id":"12",
-        "ogp_image":"http://test_server/api/admin/ogp_image",
-        "ogp_image_name":"test ogp image name1"
-    }
-    #with patch("weko_admin.views.SiteInfo.get",return_value=site_info[0]):
-    res = api.get(url)
-    assert response_data(res) == test
-
-    test = {
-        "copy_right":"test_copy_right2",
-        "description":"test site info2.",
-        "keyword":"test keyword2",
-        "favicon":"test favicon2",
-        "favicon_name":"test favicon name2",
-        "site_name":{"name":"name21"},
-        "notify":{"name":"notify21"},
-        "google_tracking_id_user":None,
-        "addthis_user_id":None,
-    }
-    SiteInfo.query.delete()
-    db.session.commit()
-    db.session.add(site_info[1])
-    db.session.commit()
-    #with patch("weko_admin.views.SiteInfo.get",return_value=site_info[1]):
-    res = api.get(url)
-    assert response_data(res) == test
-
-    current_app.config.pop("GOOGLE_TRACKING_ID_USER")
-    current_app.config.pop("ADDTHIS_USER_ID")
-    test = {
-        "copy_right":"test_copy_right2",
-        "description":"test site info2.",
-        "keyword":"test keyword2",
-        "favicon":"test favicon2",
-        "favicon_name":"test favicon name2",
-        "site_name":{"name":"name21"},
-        "notify":{"name":"notify21"},
-        "google_tracking_id_user":None,
-        "addthis_user_id":None,
-    }
-    res = api.get(url)
-    assert response_data(res) == test
+        assert response_data(res) == test
 
 
 #def get_avatar():
@@ -730,13 +737,15 @@ def test_get_avatar(api,site_info):
 def test_get_ogp_image(api, db, site_info, file_instance):
     url = url_for("weko_admin.get_ogp_image")
 
-    mock_send = patch("invenio_files_rest.models.FileInstance.send_file",return_value=make_response())
-    res = api.get(url)
-    mock_send.assert_called_with(
-        "test ogp image name1",
-        mimetype="application/octet-stream",
-        as_attachment=True
-    )
+    # mock_send = patch("invenio_files_rest.models.FileInstance.send_file",return_value=make_response())
+    with patch("invenio_files_rest.models.FileInstance.send_file",return_value=make_response()):
+        res = api.get(url)
+        # mock_send.assert_called_with(
+        assert_called_with(
+            "test ogp image name1",
+            mimetype="application/octet-stream",
+            as_attachment=True
+        )
 
     with patch("invenio_files_rest.models.FileInstance.get_by_uri",return_value=None):
         res = api.get(url)
@@ -785,13 +794,14 @@ def test_save_restricted_access_guest(api):
 def test_save_restricted_access(api, users):
     url = url_for("weko_admin.save_restricted_access")
     login_user_via_session(client=api, email=users[0]["email"])
-    with patch("weko_admin.views.update_restricted_access",return_value=False):
-        res = api.post(url,json={})
-        assert response_data(res) == {"status":False,"msg":"Could not save data."}
+    with patch("invenio_files_rest.views.db.session.remove"):
+        with patch("weko_admin.views.update_restricted_access",return_value=False):
+            res = api.post(url,json={})
+            assert response_data(res) == {"status":False,"msg":"Could not save data."}
 
-    with patch("weko_admin.views.update_restricted_access",return_value=True):
-        res = api.post(url,json={})
-        assert response_data(res) == {"status":True,"msg":"Restricted Access was successfully updated."}
+        with patch("weko_admin.views.update_restricted_access",return_value=True):
+            res = api.post(url,json={})
+            assert response_data(res) == {"status":True,"msg":"Restricted Access was successfully updated."}
 
 
 #def get_usage_report_activities():
@@ -829,11 +839,12 @@ def test_get_usage_report_activities_guest(api):
 def test_get_usage_report_activities(api,users):
     url = url_for("weko_admin.get_usage_report_activities")
     login_user_via_session(client=api, email=users[0]["email"])
-    res = api.get(url,query_string={"page":3,"size":10})
-    assert response_data(res) == {"page":1,"size":10,"activities":[],"number_of_pages":0}
+    with patch("invenio_files_rest.views.db.session.remove"):
+        res = api.get(url,query_string={"page":3,"size":10})
+        assert response_data(res) == {"page":1,"size":10,"activities":[],"number_of_pages":0}
 
-    res = api.post(url,json={"page":3,"size":10,"activity_ids":[1]})
-    assert response_data(res) == {"page":1,"size":10,"activities":[],"number_of_pages":0}
+        res = api.post(url,json={"page":3,"size":10,"activity_ids":[1]})
+        assert response_data(res) == {"page":1,"size":10,"activities":[],"number_of_pages":0}
 
 
 #def send_mail_reminder_usage_report():
@@ -864,14 +875,14 @@ def test_send_mail_reminder_usage_report(api,users):
         def send_reminder_mail(self,activity_id):
             return True
     patch("weko_admin.views.UsageReport",return_value=MockUsage())
+    with patch("invenio_files_rest.views.db.session.remove"):
+        url = url_for("weko_admin.send_mail_reminder_usage_report")
+        res = api.post(url,json={})
+        assert response_data(res) == {"status":False}
 
-    url = url_for("weko_admin.send_mail_reminder_usage_report")
-    res = api.post(url,json={})
-    assert response_data(res) == {"status":False}
-
-    url = url_for("weko_admin.send_mail_reminder_usage_report")
-    res = api.post(url,json={"activity_ids":[1,2,3]})
-    assert response_data(res) == {"status":True}
+        url = url_for("weko_admin.send_mail_reminder_usage_report")
+        res = api.post(url,json={"activity_ids":[1,2,3]})
+        assert response_data(res) == {"status":True}
 
 
 #def save_facet_search():
@@ -904,24 +915,25 @@ def test_save_facet_search(api, users):
     patch("weko_admin.views.store_facet_search_query_in_redis")
     url = url_for("weko_admin.save_facet_search")
     login_user_via_session(client=api, email=users[0]["email"])
-    with patch("weko_admin.views.is_exits_facet",return_value=True):
-        res = api.post(url,json={"id":1})
-        assert response_data(res) == {"status":False,"msg":"The item name/mapping is already exists. Please input other faceted item/mapping."}
-    with patch("weko_admin.views.is_exits_facet",return_value=False):
-        with patch("weko_admin.views.FacetSearchSetting.create",return_value=True):
-            res = api.post(url,json={})
-            assert response_data(res) == {"status":True, "msg":"Success"}
+    with patch("invenio_files_rest.views.db.session.remove"):
+        with patch("weko_admin.views.is_exits_facet",return_value=True):
+            res = api.post(url,json={"id":1})
+            assert response_data(res) == {"status":False,"msg":"The item name/mapping is already exists. Please input other faceted item/mapping."}
+        with patch("weko_admin.views.is_exits_facet",return_value=False):
+            with patch("weko_admin.views.FacetSearchSetting.create",return_value=True):
+                res = api.post(url,json={})
+                assert response_data(res) == {"status":True, "msg":"Success"}
 
-        with patch("weko_admin.views.FacetSearchSetting.create",return_value=False):
-            res = api.post(url,json={})
-            assert response_data(res) == {"status":False,"msg":"Failed to create due to server error."}
+            with patch("weko_admin.views.FacetSearchSetting.create",return_value=False):
+                res = api.post(url,json={})
+                assert response_data(res) == {"status":False,"msg":"Failed to create due to server error."}
 
-        with patch("weko_admin.views.FacetSearchSetting.update_by_id",return_value=True):
-            res = api.post(url,json={"id":[2]})
-            assert response_data(res) == {"status":True, "msg":"Success"}
-        with patch("weko_admin.views.FacetSearchSetting.update_by_id",return_value=False):
-            res = api.post(url,json={"id":[2]})
-            assert response_data(res) == {"status":False,"msg":"Failed to update due to server error."}
+            with patch("weko_admin.views.FacetSearchSetting.update_by_id",return_value=True):
+                res = api.post(url,json={"id":[2]})
+                assert response_data(res) == {"status":True, "msg":"Success"}
+            with patch("weko_admin.views.FacetSearchSetting.update_by_id",return_value=False):
+                res = api.post(url,json={"id":[2]})
+                assert response_data(res) == {"status":False,"msg":"Failed to update due to server error."}
 
 
 #def remove_facet_search():
@@ -954,15 +966,16 @@ def test_remove_facet_search(api, users):
     url = url_for("weko_admin.remove_facet_search")
     login_user_via_session(client=api, email=users[0]["email"])
     patch("weko_admin.views.store_facet_search_query_in_redis")
-    res = api.post(url,json={"id":""})
-    assert response_data(res) == {"status":False,"msg":"Failed to delete due to server error."}
-
-    with patch("weko_admin.views.FacetSearchSetting.delete",return_value=True):
-        res = api.post(url,json={"id":"1"})
-        assert response_data(res) == {"status":True,"msg":"Success"}
-    with patch("weko_admin.views.FacetSearchSetting.delete",return_value=False):
-        res = api.post(url,json={"id":"1"})
+    with patch("invenio_files_rest.views.db.session.remove"):
+        res = api.post(url,json={"id":""})
         assert response_data(res) == {"status":False,"msg":"Failed to delete due to server error."}
+
+        with patch("weko_admin.views.FacetSearchSetting.delete",return_value=True):
+            res = api.post(url,json={"id":"1"})
+            assert response_data(res) == {"status":True,"msg":"Success"}
+        with patch("weko_admin.views.FacetSearchSetting.delete",return_value=False):
+            res = api.post(url,json={"id":"1"})
+            assert response_data(res) == {"status":False,"msg":"Failed to delete due to server error."}
 
 
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_views.py::test_dbsession_clean -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp

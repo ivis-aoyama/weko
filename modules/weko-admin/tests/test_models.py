@@ -796,8 +796,8 @@ class TestSiteInfo:
 
 #    def update(cls, site_info):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_models.py::TestSiteInfo::test_update -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_update(self, app, site_info):
-        patch("invenio_files_rest.utils.update_ogp_image", side_effect=lambda x,y:"{}".format(x) if x != "false" else None)
+    def test_update(self, app, site_info,mocker):
+        mocker.patch("invenio_files_rest.utils.update_ogp_image", side_effect=lambda x,y:"{}".format(x) if x != "false" else None)
         with app.test_request_context():
             # udpate
             # update_ogp_image is None
