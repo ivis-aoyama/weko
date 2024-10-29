@@ -35,7 +35,6 @@ from flask_babel import Babel, lazy_gettext as _
 from flask_celeryext import FlaskCeleryExt
 from flask_menu import Menu
 from flask_login import current_user, login_user, LoginManager
-from pytest_mock import mocker
 from werkzeug.local import LocalProxy
 from tests.helpers import create_record, json_data, fill_oauth2_headers
 
@@ -776,8 +775,8 @@ def test_indices(app, db):
     def base_index(id, parent, position, public_state=True, public_date=None, coverpage_state=False, recursive_browsing_role=False,
                    recursive_contribute_role=False, recursive_browsing_group=False,
                    recursive_contribute_group=False, online_issn=''):
-        _browsing_role = "3,-99"
-        _contribute_role = "1,2,3,4,-98,-99"
+        _browsing_role = "Contributor,-99"
+        _contribute_role = "System Administrator,Repository Administrator,Contributor,Community Administrator,-98,-99"
         _group = "g1,g2"
         return Index(
             id=id,
