@@ -38,7 +38,8 @@ def test_send_all_reports(app, client, users, statistic_email_addrs,mocker):
         assert kwargs["html"] == "test_html"
 
     # report_type is not None
-    with send_all_reports("fiile_download") as mock_mail:
+    with patch("weko_admin.tasks.send_mail") as mock_mail:  
+        send_all_reports("fiile_download") 
         args, kwargs = mock_mail.call_args
         assert args == (subject, target_email)
         assert kwargs["html"] == "test_html"
@@ -97,7 +98,7 @@ def test_check_send_site_access_report(app, client, admin_settings):
 
 # def clean_temp_info():
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_tasks.py::test_clean_temp_info -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_clean_temp_info(app, client ,instance_path):
+def test_clean_temp_info(app, client ,instance_path, mocker):
     #/tmp
     dir_not_expire = os.path.join(instance_path,"not_expire")
     dir_expire_after_now = os.path.join(instance_path,"expire_after_now")

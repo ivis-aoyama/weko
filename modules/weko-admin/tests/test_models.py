@@ -792,7 +792,6 @@ class TestSiteInfo:
             result = SiteInfo.get()
             assert result == {}
 
-        assert 1==2
 
 #    def update(cls, site_info):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_models.py::TestSiteInfo::test_update -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
@@ -874,7 +873,7 @@ class TestFeedbackMailHistory:
 #    def get_by_id(cls, id):
 #    def get_sequence(cls, session):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_models.py::TestFeedbackMailHistory::test_get_sequence -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_get_sequence(self, db):
+    def test_get_sequence(self, db, mocker):
 
         class MockSession:
             def __init__(self):
@@ -886,7 +885,7 @@ class TestFeedbackMailHistory:
         session = MockSession()
         result = FeedbackMailHistory.get_sequence(session)
         assert result == 2
-        patch("weko_admin.models.db.session.execute", side_effect=session.execute)
+        mocker.patch("weko_admin.models.db.session.execute", side_effect=session.execute)
         result = FeedbackMailHistory.get_sequence(None)
         assert result == 3
 
