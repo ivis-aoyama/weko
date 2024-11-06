@@ -3063,6 +3063,7 @@ class WekoRecord(Record):
                 weko_logger(key='WEKO_COMMON_IF_ENTER',
                             branch=f"{value.get('language', '')} is current_lang")
                 weko_logger(key='WEKO_COMMON_RETURN_VALUE', value=value.get('title', ''))
+                print("en")
                 return value.get('title', '')
         weko_logger(key='WEKO_COMMON_FOR_END')
 
@@ -3083,6 +3084,7 @@ class WekoRecord(Record):
                 weko_logger(key='WEKO_COMMON_IF_ENTER',
                             branch=f"{value.get('language', '')} is en")
                 weko_logger(key='WEKO_COMMON_RETURN_VALUE', value=value.get('title', ''))
+                print("in")
                 return value.get('title', '')
         weko_logger(key='WEKO_COMMON_FOR_END')
 

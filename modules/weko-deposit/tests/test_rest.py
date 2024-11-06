@@ -64,10 +64,11 @@ from weko_workflow.models import Activity, FlowAction, FlowDefine, WorkFlow
     (6, 200),
     (7, 200),
 ])
-def test_publish_user(client, users, deposit, index, status_code):
+def test_publish_user(client, users, deposit, index, status_code, mocker):
     """
     Test of publish.
     """
+    mocker.patch("invenio_files_rest.views.db.session.remove")
     login_user_via_session(client=client, email=users[index]['email'])
     kwargs = {
         'pid_value': deposit
@@ -524,7 +525,7 @@ def test_depid_item_post_guest(client, deposit):
             res = client.post(url,
                             data=json.dumps(input),
                             content_type='application/json')
-            assert res.status_code == 200
+            assert res.status_code == 201
             data = json.loads(res.data)
             data.pop('created')
             data['links'].pop('bucket')
@@ -542,14 +543,14 @@ def test_depid_item_post_guest(client, deposit):
 # def post(self, pid, record, **kwargs):
 # .tox/c1/bin/pytest --cov=weko_deposit tests/test_rest.py::test_depid_item_post_users -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
 @pytest.mark.parametrize('index, status_code', [
-    (0, 200),
-    (1, 200),
-    (2, 200),
-    (3, 200),
-    (4, 200),
-    (5, 200),
-    (6, 200),
-    (7, 200),
+    (0, 201),
+    (1, 201),
+    (2, 201),
+    (3, 201),
+    (4, 201),
+    (5, 201),
+    (6, 201),
+    (7, 201),
 ])
 def test_depid_item_post_users(client, users, deposit, index, status_code):
     """

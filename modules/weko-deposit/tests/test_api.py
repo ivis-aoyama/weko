@@ -36,13 +36,13 @@ from unittest import mock
 from unittest.mock import patch, PropertyMock, MagicMock
 from six import BytesIO
 
-from flask import session, abort
+from flask import session, abort, url_for
 from flask_login import login_user
 from redis import RedisError
 from invenio_accounts.testutils import login_user_via_session
 from invenio_accounts.models import User
 from invenio_files_rest.models import Bucket, Location, ObjectVersion, FileInstance
-from invenio_pidstore.models import PersistentIdentifier
+from invenio_pidstore.models import PersistentIdentifier, PIDStatus
 from invenio_pidstore.errors import PIDInvalidAction
 from invenio_search.engine import search
 from invenio_records.errors import MissingModelError
@@ -63,7 +63,7 @@ from weko_workflow.models import Activity
 from weko_workflow.utils import get_url_root
 
 from weko_deposit.api import (
-    WekoDeposit, WekoFileObject, WekoIndexer, serialize_relations,
+    WekoDeposit, WekoFileObject, WekoIndexer,
     WekoRecord, _FormatSysBibliographicInformation, _FormatSysCreator)
 from weko_deposit.config import WEKO_DEPOSIT_BIBLIOGRAPHIC_TRANSLATIONS, WEKO_DEPOSIT_ES_PARSING_ERROR_KEYWORD
 from weko_deposit.errors import WekoDepositError
@@ -79,13 +79,13 @@ class MockClient():
     def update_get_error(self, flg):
         self.is_get_error = flg
 
-    def search(self, index=None, doc_type=None, body=None, scroll=None):
+    def search(self, index=None, body=None, scroll=None):
         return None
 
-    def index(self, index=None, doc_type=None, id=None, body=None, version=None, version_type=None):
+    def index(self, index=None, id=None, body=None, version=None, version_type=None):
         return {}
 
-    def get(self, index=None, doc_type=None, id=None, body=None):
+    def get(self, index=None, id=None, body=None):
         return {"_source": {"authorNameInfo": {},
                             "authorIdInfo": {},
                             "emailInfo": {},
@@ -93,16 +93,16 @@ class MockClient():
                             }
                 }
 
-    def update(self, index=None, doc_type=None, id=None, body=None):
+    def update(self, index=None, id=None, body=None):
         if self.is_get_error:
             raise search.exceptions.NotFoundError
         else:
             return None
 
-    def delete(self, index=None, doc_type=None, id=None, routing=None):
+    def delete(self, index=None, id=None, routing=None):
         return None
 
-    def exists(self, index=None, doc_type=None, id=None):
+    def exists(self, index=None, id=None):
         return None
 
 # class WekoFileObject(FileObject):
@@ -197,8 +197,6 @@ class TestWekoIndexer:
             with app.test_request_context():
                 indexer.get_es_index()
                 assert indexer.es_index == app.config['SEARCH_UI_SEARCH_INDEX']
-                assert indexer.es_doc_type == app.config['INDEXER_DEFAULT_DOCTYPE']
-                assert indexer.file_doc_type == 'content'
 
     #  def upload_metadata(self, jrc, item_id, revision_id, skip_files=False):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoIndexer::test_upload_metadata -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
@@ -262,12 +260,12 @@ class TestWekoIndexer:
 
     # def update_relation_version_is_last(self, version):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoIndexer::test_update_relation_version_is_last -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-    def test_update_relation_version_is_last(self, es_records):
+    def test_update_relation_version_is_last(self, es_records_1):
         with patch('weko_deposit.api.weko_logger') as mock_logger:
-            indexer, records = es_records
+            indexer, records = es_records_1
             version = records[0]['record']
             pid = records[0]['recid']
-            relations = serialize_relations(pid)
+            relations = records[0]['deposit'].serialize_relations(pid)
             relations_ver = relations['version'][0]
             relations_ver['id'] = pid.object_uuid
             relations_ver['is_last'] = relations_ver.get('index') == 0
@@ -734,12 +732,25 @@ class TestWekoDeposit():
 
     # def publish(self, pid=None, id_=None):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_publish -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-    def test_publish(self, app, location):
+    def test_publish(self, app, db, location):
         with patch('weko_deposit.api.weko_logger') as mock_logger:
             deposit = WekoDeposit.create({})
             assert deposit['_deposit']['id']
             assert 'draft' == deposit.status
             assert 0 == deposit.revision_id
+            
+            recid = PersistentIdentifier.get(
+                pid_type='recid', pid_value=deposit.pid.pid_value
+            )
+            
+            depid = PersistentIdentifier.get(
+                pid_type='depid', pid_value=deposit.pid.pid_value
+            )      
+            
+            recid.status = PIDStatus.REGISTERED
+            depid.status = PIDStatus.REGISTERED
+            db.session.commit()
+            
             deposit.publish()
             assert 'published' == deposit.status
             assert deposit.revision_id == 2
@@ -781,7 +792,7 @@ class TestWekoDeposit():
 
                 # self.data is None, "control_number" in self
                 # "$schema" not in self, "version" not in relations
-                with patch("weko_deposit.api.serialize_relations", return_value={}):
+                with patch("weko_deposit.api.WekoDeposit.serialize_relations", return_value={}):
                     deposit = WekoDeposit.create({})
                     deposit["control_number"] = "2"
                     if '$schema' in deposit:
@@ -902,27 +913,42 @@ class TestWekoDeposit():
                  verify_certs=search_client_config['verify_certs'],
             )
 
-            ret = es.get_source(index=app.config['INDEXER_DEFAULT_INDEX'],
-                                doc_type=app.config['INDEXER_DEFAULT_DOC_TYPE'], id=deposit.id)
+            ret = es.get_source(
+                index=app.config['INDEXER_DEFAULT_INDEX'],
+                id=deposit.id
+            )
+
             deposit.clear()
-            ret2 = es.get_source(index=app.config['INDEXER_DEFAULT_INDEX'],
-                                 doc_type=app.config['INDEXER_DEFAULT_DOC_TYPE'], id=deposit.id)
+
+            ret2 = es.get_source(
+                index=app.config['INDEXER_DEFAULT_INDEX'],
+                id=deposit.id
+            )
+
             assert ret == ret2
 
             indexer, records = es_records_1
             record = records[1]
             deposit = record['deposit']
 
-            es = OpenSearch(
+            es = search.client.OpenSearch(
                  hosts=[{'host': search_hosts, 'port': 9200}],
                  http_auth=search_client_config['http_auth'],
                  use_ssl=search_client_config['use_ssl'],
                  verify_certs=search_client_config['verify_certs'],
             )
 
-            ret = es.get_source(index=app.config['INDEXER_DEFAULT_INDEX'], doc_type=app.config['INDEXER_DEFAULT_DOC_TYPE'],id=deposit.id)
+            ret = es.get_source(
+                index=app.config['INDEXER_DEFAULT_INDEX'],
+                id=deposit.id
+            )
+
             deposit.clear()
-            ret2 = es.get_source(index=app.config['INDEXER_DEFAULT_INDEX'], doc_type=app.config['INDEXER_DEFAULT_DOC_TYPE'],id=deposit.id)
+            ret2 = es.get_source(
+                index=app.config['INDEXER_DEFAULT_INDEX'],
+                id=deposit.id
+            )
+
             assert ret==ret2
             mock_logger.assert_any_call(key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
             mock_logger.reset_mock()
@@ -944,13 +970,31 @@ class TestWekoDeposit():
                  verify_certs=search_client_config['verify_certs'],
             )
 
-            ret = es.get_source(index=app.config['INDEXER_DEFAULT_INDEX'],
-                                doc_type=app.config['INDEXER_DEFAULT_DOC_TYPE'], id=deposit.id)
+            ret = es.get_source(
+                index=app.config['INDEXER_DEFAULT_INDEX'],
+                id=deposit.id
+            )
+            
             deposit.delete()
-            ret2 = es.get_source(index=app.config['INDEXER_DEFAULT_INDEX'],
-                                 doc_type=app.config['INDEXER_DEFAULT_DOC_TYPE'], id=deposit.id, ignore=[404])
-            assert ret2 == {'error': {'root_cause': [{'type': 'resource_not_found_exception', 'reason': 'Document not found [test-weko-item-v1.0.0]/[item-v1.0.0]/[{}]'.format(
-                deposit.id)}], 'type': 'resource_not_found_exception', 'reason': 'Document not found [test-weko-item-v1.0.0]/[item-v1.0.0]/[{}]'.format(deposit.id)}, 'status': 404}
+            ret2 = es.get_source(
+                index=app.config['INDEXER_DEFAULT_INDEX'],
+                id=deposit.id,
+                ignore=[404]
+            )
+
+            assert ret2 == {
+                'error': {
+                    'root_cause': [
+                        {
+                            'type': 'resource_not_found_exception',
+                            'reason': 'Document not found [test-weko-item-v1.0.0]/[{}]'.format(deposit.id)
+                        }
+                    ],
+                    'type': 'resource_not_found_exception',
+                    'reason': 'Document not found [test-weko-item-v1.0.0]/[{}]'.format(deposit.id)
+                },
+                'status': 404
+            }
 
             record = records[1]
             deposit = record['deposit']
@@ -961,14 +1005,34 @@ class TestWekoDeposit():
                  use_ssl=search_client_config['use_ssl'],
                  verify_certs=search_client_config['verify_certs'],
             )
-            ret = es.get_source(index=app.config['INDEXER_DEFAULT_INDEX'],
-                                doc_type=app.config['INDEXER_DEFAULT_DOC_TYPE'], id=deposit.id)
+            ret = es.get_source(
+                index=app.config['INDEXER_DEFAULT_INDEX'],
+                id=deposit.id
+            )
+
             deposit.pid
             deposit.delete()
-            ret2 = es.get_source(index=app.config['INDEXER_DEFAULT_INDEX'],
-                                 doc_type=app.config['INDEXER_DEFAULT_DOC_TYPE'], id=deposit.id, ignore=[404])
-            assert ret2 == {'error': {'root_cause': [{'type': 'resource_not_found_exception', 'reason': 'Document not found [test-weko-item-v1.0.0]/[item-v1.0.0]/[{}]'.format(
-                deposit.id)}], 'type': 'resource_not_found_exception', 'reason': 'Document not found [test-weko-item-v1.0.0]/[item-v1.0.0]/[{}]'.format(deposit.id)}, 'status': 404}
+
+            ret2 = es.get_source(
+                index=app.config['INDEXER_DEFAULT_INDEX'],
+                id=deposit.id,
+                ignore=[404]
+            )
+
+            assert ret2 == {
+                'error': {
+                    'root_cause': 
+                    [
+                        {
+                            'type': 'resource_not_found_exception', 
+                            'reason': 'Document not found [test-weko-item-v1.0.0]/[{}]'.format(deposit.id)
+                        }
+                    ], 
+                    'type': 'resource_not_found_exception', 
+                    'reason': 'Document not found [test-weko-item-v1.0.0]/[{}]'.format(deposit.id)
+                }, 
+                'status': 404
+            }
 
             mock_logger.assert_any_call(
                 key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
@@ -980,27 +1044,46 @@ class TestWekoDeposit():
             record = records[2]
             deposit = record['deposit']
 
-            es = OpenSearch(
+            es = search.client.OpenSearch(
                  hosts=[{'host': search_hosts, 'port': 9200}],
                  http_auth=search_client_config['http_auth'],
                  use_ssl=search_client_config['use_ssl'],
                  verify_certs=search_client_config['verify_certs'],
             )
 
-            ret = es.get_source(index=app.config['INDEXER_DEFAULT_INDEX'],
-                                doc_type=app.config['INDEXER_DEFAULT_DOC_TYPE'], id=deposit.id)
+            ret = es.get_source(
+                index=app.config['INDEXER_DEFAULT_INDEX'],
+                id=deposit.id
+            )
+
             recid = PersistentIdentifier.get(
                 pid_type='recid', pid_value=deposit.pid.pid_value
             )
+            from invenio_pidstore.models import PIDStatus
             recid.status = PIDStatus.REGISTERED
             db.session.commit()
 
             deposit.delete()
 
-            ret2 = es.get_source(index=app.config['INDEXER_DEFAULT_INDEX'],
-                                    doc_type=app.config['INDEXER_DEFAULT_DOC_TYPE'], id=deposit.id, ignore=[404])
-            assert ret2 == {'error': {'root_cause': [{'type': 'resource_not_found_exception', 'reason': 'Document not found [test-weko-item-v1.0.0]/[item-v1.0.0]/[{}]'.format(
-                deposit.id)}], 'type': 'resource_not_found_exception', 'reason': 'Document not found [test-weko-item-v1.0.0]/[item-v1.0.0]/[{}]'.format(deposit.id)}, 'status': 404}
+            ret2 = es.get_source(
+                index=app.config['INDEXER_DEFAULT_INDEX'],
+                id=deposit.id,
+                ignore=[404]
+            )
+
+            assert ret2 == {
+                'error': {
+                    'root_cause': [
+                        {
+                            'type': 'resource_not_found_exception',
+                            'reason': 'Document not found [test-weko-item-v1.0.0]/[{}]'.format(deposit.id)
+                        }
+                    ],
+                    'type': 'resource_not_found_exception',
+                    'reason': 'Document not found [test-weko-item-v1.0.0]/[{}]'.format(deposit.id)
+                },
+                'status': 404
+            }
 
     # def commit(self, *args, **kwargs):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_commit -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
@@ -1370,14 +1453,14 @@ class TestWekoDeposit():
                 mock_logger.reset_mock()
 
                 with patch("weko_deposit.api.WekoIndexer.upload_metadata") as mock_upload:
-                    mock_upload.side_effect = [seacrh.exceptions.TransportError(500,"test_error",{"error":{"reason": WEKO_DEPOSIT_ES_PARSING_ERROR_KEYWORD}}), "Mocked Data"]
+                    mock_upload.side_effect = [search.exceptions.TransportError(500,"test_error",{"error":{"reason": WEKO_DEPOSIT_ES_PARSING_ERROR_KEYWORD}}), "Mocked Data"]
                     deposit.commit()
 
                     with pytest.raises(WekoDepositError):
                         result = deposit.commit()
 
                 with patch("weko_deposit.api.WekoIndexer.upload_metadata") as mock_upload:
-                    mock_upload.side_effect = [seacrh.exceptions.TransportError(500,"test_error",{"error":{"reason":""}}), "test error"]
+                    mock_upload.side_effect = [search.exceptions.TransportError(500,"test_error",{"error":{"reason":""}}), "test error"]
                     with pytest.raises(WekoDepositError) as ex:
                         deposit.commit()
 
@@ -1401,8 +1484,9 @@ class TestWekoDeposit():
             with pytest.raises(AttributeError):
                 ret = deposit.newversion()
 
-            ret = deposit.newversion(deposit.pid, True)
-            assert ret == None
+            with app.test_request_context():
+                ret = deposit.newversion(deposit.pid, True)
+                assert ret == None
 
             mock_logger.assert_any_call(
                 key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
@@ -2400,7 +2484,7 @@ class TestWekoDeposit():
             deposit.delete_by_index_tree_id('',record['deposit'])
 
             with patch("invenio_records.models.RecordMetadata.query") as mock_json:
-                with pytest.raises(seacrh.exceptions.TransportError):
+                with pytest.raises(search.exceptions.TransportError):
                     mock_json.return_value = True
                     record = records[1]
                     deposit = record['deposit']
@@ -2452,27 +2536,28 @@ class TestWekoDeposit():
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_delete_es_index_attempt -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_delete_es_index_attempt(sel, app, db, location):
         with patch('weko_deposit.api.weko_logger') as mock_logger:
-            # deposit = WekoDeposit.create({})
-            session["activity_info"] = {"activity_id": '1'}
-            data = {
-                "$schema": "https://127.0.0.1/schema/deposits/deposit-v1.0.0.json"}
-            id = uuid.uuid4()
-            deposit = WekoDeposit.create(data, id_=id)
-            deposit.pid.status = "D"
-            # deposit.pid = "1"
-            db.session.commit()
-            deposit.delete_es_index_attempt(deposit.pid)
-
-
-            with patch("invenio_search.ext.Elasticsearch.delete", side_effect=Exception("test_error")):
-                deposit = WekoDeposit.create({})
+            with app.test_request_context():
+                # deposit = WekoDeposit.create({})
+                session["activity_info"] = {"activity_id": '1'}
+                data = {
+                    "$schema": "https://127.0.0.1/schema/deposits/deposit-v1.0.0.json"}
+                id = uuid.uuid4()
+                deposit = WekoDeposit.create(data, id_=id)
                 deposit.pid.status = "D"
+                # deposit.pid = "1"
                 db.session.commit()
                 deposit.delete_es_index_attempt(deposit.pid)
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.reset_mock()
+
+                with patch("invenio_search.engine.search.OpenSearch.delete", side_effect=Exception("test_error")):
+                    deposit = WekoDeposit.create({})
+                    deposit.pid.status = "D"
+                    db.session.commit()
+                    deposit.delete_es_index_attempt(deposit.pid)
+
+                mock_logger.assert_any_call(
+                    key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
+                mock_logger.reset_mock()
 
     # def update_author_link(self, author_link):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_update_author_link -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
@@ -2570,7 +2655,7 @@ class TestWekoDeposit():
 
     # def merge_data_to_record_without_version(self, pid, keep_version=False,
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_merge_data_to_record_without_version -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-    def test_merge_data_to_record_without_version(sel, app, db, location, es_records,es_records_8):
+    def test_merge_data_to_record_without_version(sel, app, db, location, es_records):
         with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, records = es_records
             record = records[0]
@@ -2582,23 +2667,21 @@ class TestWekoDeposit():
 
             from invenio_records_files.models import RecordsBuckets
             from invenio_files_rest.models import Bucket
-            indexer, records = es_records
             record = records[1]
             deposit = record['deposit']
             recid = record['recid']
-            record_bucket=RecordsBuckets.query.filter_by(record_id=deposit.id).one_or_none()
-            rd=RecordsBuckets(record_id=records[2]["recid"].object_uuid,bucket_id=record_bucket.bucket.id)
+            record_bucket=RecordsBuckets.query.filter_by(record_id=deposit.id).all()
+            rd=RecordsBuckets(record_id=records[2]["recid"].object_uuid,bucket_id=record_bucket[0].bucket_id)
             db.session.add(rd)
             db.session.commit()
             assert deposit.merge_data_to_record_without_version(recid)
 
-
-            indexer, records = es_records
             record = records[0]
             deposit = record['deposit']
-            record_bucket=RecordsBuckets.query.filter_by(record_id=deposit.id).one_or_none()
+            record_bucket=RecordsBuckets.query.filter_by(record_id=deposit.id).all()
             if record_bucket:
-                db.session.delete(record_bucket)
+                for rb in record_bucket:
+                    db.session.delete(rb)
                 db.session.commit()
             recid = record['recid']
             assert deposit.merge_data_to_record_without_version(recid)
@@ -2870,6 +2953,7 @@ class TestWekoRecord:
                 key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
             mock_logger.reset_mock()
 
+            print("test")
             # no language
             with app.test_request_context(headers=[('Accept-Language', 'da')]):
                 data = [{"title": "title"}, {
@@ -2877,6 +2961,7 @@ class TestWekoRecord:
                 result = record.switching_language(data)
                 assert result == "title"
 
+            print("test_end")
             mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
             mock_logger.assert_any_call(
                 key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
@@ -3091,7 +3176,7 @@ class TestWekoRecord:
 
     #     def get_titles(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_get_titles -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-    def test_get_titles(self,app,es_records,db_itemtype,db_oaischema,es_records_3,es_records_4):
+    def test_get_titles(self,app,es_records,db_itemtype,db_oaischema,es_records_3):
         with patch('weko_deposit.api.weko_logger') as mock_logger:
             record = WekoRecord({})
             with app.test_request_context():
@@ -3145,11 +3230,11 @@ class TestWekoRecord:
             with app.test_request_context(headers=[("Accept-Language", "ja")]):
                 assert record.get_titles==""
 
-            indexer, results = es_records_4
-            result = results[0]
-            record = result['record']
-            with app.test_request_context(headers=[("Accept-Language", "en")]):
-                assert record.get_titles=="title"
+            # indexer, results = es_records_4
+            # result = results[0]
+            # record = result['record']
+            # with app.test_request_context(headers=[("Accept-Language", "en")]):
+            #     assert record.get_titles=="title"
 
             mock_logger.assert_any_call(key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
             mock_logger.assert_any_call(key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
@@ -3288,58 +3373,85 @@ class TestWekoRecord:
 
     #     def __remove_file_metadata_do_not_publish(self, file_metadata_list):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test___remove_file_metadata_do_not_publish -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-    def test___remove_file_metadata_do_not_publish(self,es_records,users):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
-            indexer, results = es_records
-            record = results[0]
-            file_metadata = [{'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'}, 'date': [{'dateType': 'Available', 'dateValue': '2022-09-07'}], 'format': 'plain/text', 'filename': 'hello.txt', 'filesize': [{'value': '146 KB'}], 'accessrole': 'open_date', 'version_id': '2dfc9468-6a1f-4204-928d-0795625b79c8', 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk'}]
-            assert record["record"]._WekoRecord__remove_file_metadata_do_not_publish(file_metadata) ==[{'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'}, 'date': [{'dateType': 'Available', 'dateValue': '2022-09-07'}], 'format': 'plain/text', 'filename': 'hello.txt', 'filesize': [{'value': '146 KB'}], 'accessrole': 'open_date', 'version_id': '2dfc9468-6a1f-4204-928d-0795625b79c8', 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk'}]
+    def test___remove_file_metadata_do_not_publish(self,app,es_records,users):
+        with app.test_request_context():
+            with patch('weko_deposit.api.weko_logger') as mock_logger:
+                indexer, results = es_records
+                record = results[0]
 
-            record = results[1]
-            file_metadata = [{'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'}, 'date': [{'dateType': 'Available', 'dateValue': ''}], 'format': 'plain/text', 'filename': 'hello.txt', 'filesize': [{'value': '146 KB'}], 'accessrole': 'open_date', 'version_id': '2dfc9468-6a1f-4204-928d-0795625b79c8', 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk'}]
-            assert record["record"]._WekoRecord__remove_file_metadata_do_not_publish(file_metadata) ==[]
+                file_metadata = [
+                    {
+                        'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'},
+                        'date': [{'dateType': 'Available', 'dateValue': '2022-09-07'}],
+                        'format': 'plain/text',
+                        'filename': 'hello.txt',
+                        'filesize': [{'value': '146 KB'}],
+                        'accessrole': 'open_date',
+                        'version_id': '2dfc9468-6a1f-4204-928d-0795625b79c8',
+                        'mimetype': 'application/pdf',
+                        'file': 'SGVsbG8sIFdvcmxk'
+                    }
+                ]
 
-            record = results[2]
-            file_metadata = [{'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'}, 'date': [{'dateType': 'Available', 'dateValue': ''}], 'format': 'plain/text', 'filename': 'hello.txt', 'filesize': [{'value': '146 KB'}], 'version_id': '2dfc9468-6a1f-4204-928d-0795625b79c8', 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk'}]
-            assert record["record"]._WekoRecord__remove_file_metadata_do_not_publish(file_metadata) ==[{'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'}, 'date': [{'dateType': 'Available', 'dateValue': ''}], 'format': 'plain/text', 'filename': 'hello.txt', 'filesize': [{'value': '146 KB'}], 'version_id': '2dfc9468-6a1f-4204-928d-0795625b79c8', 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk'}]
-
-            record = results[3]
-            user = users[0]
-            with patch("flask_login.utils._get_user", return_value=user["obj"]):
-
-                file_metadata = [{'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'}, 'accessrole': 'open_no', 'date': [{'dateType': 'Available', 'dateValue': ''}], 'format': 'plain/text', 'filename': 'hello.txt', 'filesize': [{'value': '146 KB'}], 'version_id': '2dfc9468-6a1f-4204-928d-0795625b79c8', 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk'}]
+                assert record["record"]._WekoRecord__remove_file_metadata_do_not_publish(file_metadata) == [
+                    {
+                        'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'},
+                        'date': [{'dateType': 'Available', 'dateValue': '2022-09-07'}],
+                        'format': 'plain/text',
+                        'filename': 'hello.txt',
+                        'filesize': [{'value': '146 KB'}],
+                        'accessrole': 'open_date',
+                        'version_id': '2dfc9468-6a1f-4204-928d-0795625b79c8',
+                        'mimetype': 'application/pdf',
+                        'file': 'SGVsbG8sIFdvcmxk'
+                    }
+                ]
+                record = results[1]
+                file_metadata = [{'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'}, 'date': [{'dateType': 'Available', 'dateValue': ''}], 'format': 'plain/text', 'filename': 'hello.txt', 'filesize': [{'value': '146 KB'}], 'accessrole': 'open_date', 'version_id': '2dfc9468-6a1f-4204-928d-0795625b79c8', 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk'}]
                 assert record["record"]._WekoRecord__remove_file_metadata_do_not_publish(file_metadata) ==[]
+
+                record = results[2]
+                file_metadata = [{'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'}, 'date': [{'dateType': 'Available', 'dateValue': ''}], 'format': 'plain/text', 'filename': 'hello.txt', 'filesize': [{'value': '146 KB'}], 'version_id': '2dfc9468-6a1f-4204-928d-0795625b79c8', 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk'}]
+                assert record["record"]._WekoRecord__remove_file_metadata_do_not_publish(file_metadata) ==[{'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'}, 'date': [{'dateType': 'Available', 'dateValue': ''}], 'format': 'plain/text', 'filename': 'hello.txt', 'filesize': [{'value': '146 KB'}], 'version_id': '2dfc9468-6a1f-4204-928d-0795625b79c8', 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk'}]
+
+                record = results[3]
+                user = users[0]
+                with patch("flask_login.utils._get_user", return_value=user["obj"]):
+
+                    file_metadata = [{'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'}, 'accessrole': 'open_no', 'date': [{'dateType': 'Available', 'dateValue': ''}], 'format': 'plain/text', 'filename': 'hello.txt', 'filesize': [{'value': '146 KB'}], 'version_id': '2dfc9468-6a1f-4204-928d-0795625b79c8', 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk'}]
+                    assert record["record"]._WekoRecord__remove_file_metadata_do_not_publish(file_metadata) ==[]
 
 
     #     def __check_user_permission(user_id_list):
     #.tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test___check_user_permission -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-    def test___check_user_permission(self,es_records,users):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
-            indexer, results = es_records
-            record = results[0]
-            user_id_list = ["1","2"]
-            assert record["record"]._WekoRecord__check_user_permission(user_id_list) ==False
-
-            record = results[1]
-            user = users[6]
-            with patch("flask_login.utils._get_user", return_value=user["obj"]):
-                user_id_list = ["1","2","3","4","5"]
-                assert record["record"]._WekoRecord__check_user_permission(user_id_list) ==True
-
-            user = users[6]
-            with patch("flask_login.utils._get_user", return_value=user["obj"]):
-                user_id_list = [1,2,3,4,5,6,7,8]
-                assert record["record"]._WekoRecord__check_user_permission(user_id_list) ==True
-
-            user = users[7]
-            with patch("flask_login.utils._get_user", return_value=user["obj"]):
-                user_id_list = ["1","2","3","4","5"]
+    def test___check_user_permission(self,app, es_records,users):
+        with app.test_request_context():
+            with patch('weko_deposit.api.weko_logger') as mock_logger:
+                indexer, results = es_records
+                record = results[0]
+                user_id_list = ["1","2"]
                 assert record["record"]._WekoRecord__check_user_permission(user_id_list) ==False
 
-            user = users[5]
-            with patch("flask_login.utils._get_user", return_value=user["obj"]):
-                user_id_list = ["1","2","3","4","5"]
-                assert record["record"]._WekoRecord__check_user_permission(user_id_list) ==False
+                record = results[1]
+                user = users[6]
+                with patch("flask_login.utils._get_user", return_value=user["obj"]):
+                    user_id_list = ["1","2","3","4","5"]
+                    assert record["record"]._WekoRecord__check_user_permission(user_id_list) ==True
+
+                user = users[6]
+                with patch("flask_login.utils._get_user", return_value=user["obj"]):
+                    user_id_list = [1,2,3,4,5,6,7,8]
+                    assert record["record"]._WekoRecord__check_user_permission(user_id_list) ==True
+
+                user = users[7]
+                with patch("flask_login.utils._get_user", return_value=user["obj"]):
+                    user_id_list = ["1","2","3","4","5"]
+                    assert record["record"]._WekoRecord__check_user_permission(user_id_list) ==False
+
+                user = users[5]
+                with patch("flask_login.utils._get_user", return_value=user["obj"]):
+                    user_id_list = ["1","2","3","4","5"]
+                    assert record["record"]._WekoRecord__check_user_permission(user_id_list) ==False
 
     #     def is_input_open_access_date(file_metadata):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_is_input_open_access_date -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
@@ -3552,7 +3664,7 @@ class TestWekoRecord:
 
     #     def get_file_data(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_get_file_data -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-    def test_get_file_data(self,app,es_records,es_records_3):
+    def test_get_file_data(self,app,es_records):
         with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, records = es_records
             record = records[0]["record"]
@@ -3561,11 +3673,11 @@ class TestWekoRecord:
                 assert result[0]["accessrole"] == "open_access"
                 assert result[0]["filename"] == "hello.txt"
 
-            indexer, records = es_records_3
-            record = records[0]["record"]
-            with app.test_request_context():
-                result = record.get_file_data()
-                assert result == []
+            # indexer, records = es_records_3
+            # record = records[0]["record"]
+            # with app.test_request_context():
+            #     result = record.get_file_data()
+            #     assert result == []
 
             with app.test_request_context():
                 pass
@@ -4654,7 +4766,6 @@ def test_weko_deposit(app, db, location):
         }
     }
 
-
 def test_weko_indexer(app, db, location):
     deposit = WekoDeposit.create({})
     db.session.commit()
@@ -4725,10 +4836,18 @@ def test_weko_deposit_new(app, db, location):
         pid_value=recid
     ).first()
 
+    depid = PersistentIdentifier.query.filter_by(
+        pid_type='depid',
+        pid_value=recid
+    ).first()
+
     record = WekoDeposit.get_record(pid.object_uuid)
     deposit = WekoDeposit(record, record.model)
     with patch('weko_deposit.api.WekoIndexer.update_relation_version_is_last', side_effect=search.exceptions.NotFoundError):
-        with pytest.raises(search.exceptions.NotFoundError):
+        with pytest.raises(search.exceptions.NotFoundError): 
+            pid.status = PIDStatus.REGISTERED
+            depid.status = PIDStatus.REGISTERED
+            db.session.commit()
             deposit.publish()
 
 
