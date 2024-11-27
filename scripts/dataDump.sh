@@ -13,6 +13,6 @@ docker cp $(docker-compose ps -q postgresql):/tmp/datadump.backup /tmp/datadump.
 docker-compose stop postgresql
 
 # create volume directry 
-mv /var/lib/docker/volumes/weko_pgsql-data/_data /var/lib/docker/volumes/weko_pgsql-data/_data_old
+sudo mv /var/lib/docker/volumes/weko_pgsql-data/_data /var/lib/docker/volumes/weko_pgsql-data/_data_old
 
-mkdir /var/lib/docker/volumes/weko_pgsql-data/_data
+sudo mkdir /var/lib/docker/volumes/weko_pgsql-data/_data
