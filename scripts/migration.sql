@@ -213,6 +213,16 @@ CREATE TABLE accounts_domain (
     FOREIGN KEY (category_id) REFERENCES accounts_domain_category(id)
 );
 
+--typeカラムの入力必須→入力任意への変更
+ALTER TABLE stats_events
+ALTER COLUMN type SET NOT NULL;
+
+ALTER TABLE stats_aggregation
+ALTER COLUMN type SET NOT NULL;
+
+ALTER TABLE stats_bookmark
+ALTER COLUMN type SET NOT NULL;
+
 -- テーブルバックアップの削除
 drop table oaiserver_set_bk cascade;
   
