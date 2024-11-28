@@ -64,10 +64,11 @@ from weko_workflow.models import Activity, FlowAction, FlowDefine, WorkFlow
     (6, 200),
     (7, 200),
 ])
-def test_publish_user(client, users, deposit, index, status_code):
+def test_publish_users(client, users, deposit, index, status_code,mocker):
     """
     Test of publish.
     """
+    mocker.patch("weko_items_ui.views.db.session.remove")
     login_user_via_session(client=client, email=users[index]['email'])
     kwargs = {
         'pid_value': deposit
