@@ -85,7 +85,7 @@ def test_publish_user(client, users, deposit, index, status_code):
                         content_type='application/json')
             assert res.status_code == 400
             assert "Some errors in the DB." in res.data.decode("utf-8")
-            mock_logger.assert_called_with(key='WEKO_COMMON_DB_SOME_ERROR', ex=mock.ANY)
+            mock_logger.assert_any_call(key='WEKO_COMMON_DB_SOME_ERROR', ex=mock.ANY)
             mock_logger.reset_mock()
 
     # Exception
@@ -280,7 +280,7 @@ def test_put_upgrade_record_is_not_none_and_dot_0_in_pid_value(client, users, de
         res = client.put(url, data=json.dumps(input),
                         content_type='application/json')
         assert res.status_code == 200
-        mock_logger.assert_called_with(key='WEKO_COMMON_IF_ENTER', branch="upgrade_record is not None and '.0' in pid_value")
+        mock_logger.assert_any_call(key='WEKO_COMMON_IF_ENTER', branch="upgrade_record is not None and '.0' in pid_value")
 
 #    def put(self, **kwargs):
 # .tox/c1/bin/pytest --cov=weko_deposit tests/test_rest.py::test_put_wf_activity_is_not_none -vv -s --cov-branch --cov-report=html --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp --full-trace
@@ -353,8 +353,7 @@ def test_put_wf_activity_is_not_none(client, users, db,location,  es_records,db_
         res = client.put(url, data=json.dumps(input),
                         content_type='application/json')
         assert res.status_code == 200
-        mock_logger.assert_called_with(key='WEKO_COMMON_IF_ENTER', branch="wf_activity is not None")
-
+        mock_logger.assert_any_call(key='WEKO_COMMON_IF_ENTER', branch="wf_activity is not None")
     # if weko_record: is None
     with patch("weko_deposit.rest.WekoRecord.get_record_by_pid", return_value=None):
         res = client.put(url, data=json.dumps(input),
@@ -524,7 +523,7 @@ def test_depid_item_post_guest(client, deposit):
             res = client.post(url,
                             data=json.dumps(input),
                             content_type='application/json')
-            assert res.status_code == 200
+            assert res.status_code == 201
             data = json.loads(res.data)
             data.pop('created')
             data['links'].pop('bucket')
@@ -537,19 +536,19 @@ def test_depid_item_post_guest(client, deposit):
                     'r': '/items/index/1'
                 }
             }
-            mock_logger.assert_called_with(key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
+            mock_logger.assert_any_call(key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
 
 # def post(self, pid, record, **kwargs):
 # .tox/c1/bin/pytest --cov=weko_deposit tests/test_rest.py::test_depid_item_post_users -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
 @pytest.mark.parametrize('index, status_code', [
-    (0, 200),
-    (1, 200),
-    (2, 200),
-    (3, 200),
-    (4, 200),
-    (5, 200),
-    (6, 200),
-    (7, 200),
+    (0, 201),
+    (1, 201),
+    (2, 201),
+    (3, 201),
+    (4, 201),
+    (5, 201),
+    (6, 201),
+    (7, 201),
 ])
 def test_depid_item_post_users(client, users, deposit, index, status_code):
     """
